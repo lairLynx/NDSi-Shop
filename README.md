@@ -95,7 +95,7 @@ python build.py release
 ## Credits
 
 This project is based on and builds on the original work from [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi), created and maintained mainly by [TheRinzler65](https://github.com/TheRinzler65).
-The original project is released under the [MIT License](https://opensource.org/licenses/MIT), and this fork continues that attribution.
+The original project is released under the [MIT License](https://opensource.org/licenses/MIT), and this version continues that attribution.
 
 Additional inspiration and related work:
 - [Kekatsu DS](https://github.com/cavv-dev/Kekatsu-DS) by cavv-dev (MIT licensed)
