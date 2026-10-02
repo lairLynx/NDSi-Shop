@@ -98,6 +98,10 @@ The 3DS port is maintained in a separate repository: [NDS-Shop](https://github.c
 
 ## Credits
 
-Based on [Kekatsu DS](https://github.com/cavv-dev/Kekatsu-DS) by cavv-dev (MIT licensed).
-Database: [UDB-Kekatsu-DS](https://github.com/cavv-dev/UDB-Kekatsu-DS).
-Concept inspired by [pkgi-psp](https://github.com/bucanero/pkgi-psp) and [Universal-Updater](https://github.com/Universal-Team/Universal-Updater).
+This project is based on and builds on the original work from [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi), created and maintained mainly by [TheRinzler65](https://github.com/TheRinzler65).
+The original project is released under the [MIT License](https://opensource.org/licenses/MIT), and this fork continues that attribution.
+
+Additional inspiration and related work:
+- [Kekatsu DS](https://github.com/cavv-dev/Kekatsu-DS) by cavv-dev (MIT licensed)
+- Database: [UDB-Kekatsu-DS](https://github.com/cavv-dev/UDB-Kekatsu-DS)
+- Concept inspired by [pkgi-psp](https://github.com/bucanero/pkgi-psp) and [Universal-Updater](https://github.com/Universal-Team/Universal-Updater)
