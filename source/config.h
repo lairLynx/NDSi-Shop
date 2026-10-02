@@ -7,5 +7,5 @@
 #define APPDATA_DIR "/NDS-Shop"
 #define CACHE_DIR APPDATA_DIR "/cache" 
 
-#define UPDATE_URL_APP "https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi/releases/latest/download/NDS-Shop.nds"
-#define UPDATE_URL_VERSION "https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi/releases/latest/download/version.txt"
+#define UPDATE_URL_APP "https://github.com/lairLynx/NDSi-Shop/releases/latest/download/DSi-Shop.nds"
+#define UPDATE_URL_VERSION "https://github.com/lairLynx/NDSi-Shop/releases/latest/download/version.txt"

@@ -1,5 +1,6 @@
 #include "text.h"
 
+#include "software.h"
 #include "fontBig_0_png.h"
 #include "fontMedium_0_png.h"
 #include "fontSmall_0_png.h"
@@ -33,6 +34,8 @@ struct GuiText {
     bool wrap;
     int textureId;
     glImage* font;
+    const uint16_t* fontTexCoords;
+    const u8* fontBitmap;
 };
 
 void initGuiFont(void)
@@ -94,14 +97,20 @@ GuiText newGuiText(const char* text, GuiTextSize size, u16 color)
     case GUI_TEXT_SIZE_BIG:
         gt->textureId = fontBigTextureId;
         gt->font = fontBig;
+        gt->fontTexCoords = fontBigTexCoords;
+        gt->fontBitmap = (const u8*)fontBig_0_pngBitmap;
         break;
     case GUI_TEXT_SIZE_MEDIUM:
         gt->textureId = fontMediumTextureId;
         gt->font = fontMedium;
+        gt->fontTexCoords = fontMediumTexCoords;
+        gt->fontBitmap = (const u8*)fontMedium_0_pngBitmap;
         break;
     case GUI_TEXT_SIZE_SMALL:
         gt->textureId = fontSmallTextureId;
         gt->font = fontSmall;
+        gt->fontTexCoords = fontSmallTexCoords;
+        gt->fontBitmap = (const u8*)fontSmall_0_pngBitmap;
         break;
     }
 
@@ -293,9 +302,12 @@ void drawGuiTextPos(GuiText gt, size_t posX, size_t posY)
 
     size_t yStart = y;
 
-    glSetActiveTexture(gt->textureId);
-    glPolyFmt(POLY_ALPHA(31) | POLY_CULL_NONE | POLY_ID(1));
-    glColor(gt->color);
+    bool software = guiSoftwareIsActive();
+    if (!software) {
+        glSetActiveTexture(gt->textureId);
+        glPolyFmt(POLY_ALPHA(31) | POLY_CULL_NONE | POLY_ID(1));
+        glColor(gt->color);
+    }
 
     for (size_t i = 0; i < gt->length; i++) {
         glImage currChar = gt->font[gt->text[i] - 1];
@@ -335,7 +347,14 @@ void drawGuiTextPos(GuiText gt, size_t posX, size_t posY)
                 currChar = gt->font[gt->text[j] - 1];
 
                 if (gt->text[j] != '\n') {
-                    glSprite(x, y, GL_FLIP_NONE, &currChar);
+                    if (software) {
+                        size_t glyphIndex = (u8)gt->text[j] - 1;
+                        const uint16_t* coords = &gt->fontTexCoords[glyphIndex * 4];
+                        guiSoftwareDrawGlyph(gt->fontBitmap, 256, coords[0], coords[1],
+                            currChar.width, currChar.height, x, y, gt->color);
+                    } else {
+                        glSprite(x, y, GL_FLIP_NONE, &currChar);
+                    }
                     x += currChar.width + 1;
                 }
             }
@@ -365,12 +384,20 @@ void drawGuiTextPos(GuiText gt, size_t posX, size_t posY)
 
         for (size_t j = lineStart; j < gt->length; j++) {
             glImage currChar = gt->font[gt->text[j] - 1];
-            glSprite(x, y, GL_FLIP_NONE, &currChar);
+            if (software) {
+                size_t glyphIndex = (u8)gt->text[j] - 1;
+                const uint16_t* coords = &gt->fontTexCoords[glyphIndex * 4];
+                guiSoftwareDrawGlyph(gt->fontBitmap, 256, coords[0], coords[1],
+                    currChar.width, currChar.height, x, y, gt->color);
+            } else {
+                glSprite(x, y, GL_FLIP_NONE, &currChar);
+            }
             x += currChar.width + 1;
         }
     }
 
-    glColor(RGB15(31, 31, 31));
+    if (!software)
+        glColor(RGB15(31, 31, 31));
 }
 
 void drawGuiText(GuiText gt)

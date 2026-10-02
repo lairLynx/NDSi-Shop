@@ -4,6 +4,7 @@
 #include "input.h"
 #include "keyboard.h"
 #include "progressbar.h"
+#include "software.h"
 #include <gl2d.h>
 #include <nds.h>
 
@@ -28,8 +29,6 @@ struct GuiScreen {
 
 static GuiScreen activeTopScreen = NULL;
 static GuiScreen activeBottomScreen = NULL;
-
-static GuiScreenLcd targetLcd = GUI_SCREEN_LCD_TOP;
 
 GuiScreen newGuiScreen(GuiScreenLcd lcd)
 {
@@ -110,7 +109,13 @@ void removeFromGuiScreen(GuiScreen gs, void* element)
 
 void drawGuiScreen(GuiScreen gs)
 {
-    glBegin2D();
+    bool software = gs->lcd == GUI_SCREEN_LCD_BOTTOM;
+    if (software) {
+        guiSoftwareBeginFrame(0);
+        guiSoftwareSetActive(true);
+    } else {
+        glBegin2D();
+    }
 
     struct ElementNode* curr;
     curr = gs->elements->head;
@@ -142,18 +147,16 @@ void drawGuiScreen(GuiScreen gs)
         curr = curr->next;
     }
 
-    glEnd2D();
+    if (software)
+        guiSoftwareSetActive(false);
+    else
+        glEnd2D();
 }
 
 void setActiveScreens(GuiScreen topScreen, GuiScreen bottomScreen)
 {
     activeTopScreen = topScreen;
     activeBottomScreen = bottomScreen;
-}
-
-void setNextGuiScreenDrawTarget(GuiScreenLcd lcd)
-{
-    targetLcd = lcd;
 }
 
 GuiScreen getActiveTopScreen(void)
@@ -283,41 +286,18 @@ void drawScreens(void)
 
     handleScreensDpadNavigate();
 
-    // Wait for capture unit to be ready
-    while (REG_DISPCAPCNT & DCAP_ENABLE) { };
-
-    if (activeTopScreen && activeBottomScreen) {
-        if (targetLcd == GUI_SCREEN_LCD_TOP) {
-            lcdMainOnBottom();
-            vramSetBankC(VRAM_C_LCD);
-            vramSetBankD(VRAM_D_SUB_SPRITE);
-            REG_DISPCAPCNT = DCAP_BANK(2) | DCAP_ENABLE | DCAP_SIZE(3);
-
-            drawGuiScreen(activeTopScreen);
-        } else {
-            lcdMainOnTop();
-            vramSetBankD(VRAM_D_LCD);
-            vramSetBankC(VRAM_C_SUB_BG);
-            REG_DISPCAPCNT = DCAP_BANK(3) | DCAP_ENABLE | DCAP_SIZE(3);
-
-            drawGuiScreen(activeBottomScreen);
-        }
-
-        // Swap target lcd
-        targetLcd = targetLcd == GUI_SCREEN_LCD_TOP ? GUI_SCREEN_LCD_BOTTOM : GUI_SCREEN_LCD_TOP;
-    } else if (activeTopScreen) {
-        lcdMainOnTop();
-        vramSetBankD(VRAM_D_LCD);
-        vramSetBankC(VRAM_C_SUB_BG);
-        REG_DISPCAPCNT = DCAP_BANK(3) | DCAP_ENABLE | DCAP_SIZE(3);
-
+    if (activeTopScreen) {
         drawGuiScreen(activeTopScreen);
-    } else {
-        lcdMainOnBottom();
-        vramSetBankC(VRAM_C_LCD);
-        vramSetBankD(VRAM_D_SUB_SPRITE);
-        REG_DISPCAPCNT = DCAP_BANK(2) | DCAP_ENABLE | DCAP_SIZE(3);
-
-        drawGuiScreen(activeBottomScreen);
+    } else if (activeBottomScreen) {
+        glBegin2D();
+        glBoxFilled(0, 0, SCREEN_WIDTH - 1, SCREEN_HEIGHT - 1, RGB15(0, 0, 0));
+        glEnd2D();
     }
+
+    if (activeBottomScreen)
+        drawGuiScreen(activeBottomScreen);
+    else
+        guiSoftwareBeginFrame(0);
+
+    guiSoftwarePresentFrame();
 }

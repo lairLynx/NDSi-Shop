@@ -23,7 +23,6 @@ void addToGuiScreen(GuiScreen, void* element, GuiElementType);
 void removeFromGuiScreen(GuiScreen, void* element);
 void setGuiScreenDpadNavigate(GuiScreen, bool);
 void setActiveScreens(GuiScreen topScreen, GuiScreen bottomScreen);
-void setNextGuiScreenDrawTarget(GuiScreenLcd);
 GuiScreen getActiveTopScreen(void);
 GuiScreen getActiveBottomScreen(void);
 void drawScreens(void);

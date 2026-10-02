@@ -593,9 +593,7 @@ static GuiImage loadBoxartInternal(Entry e)
 
 static GuiImage loadBoxart(Entry e)
 {
-    GuiImage img = loadBoxartInternal(e);
-    setNextGuiScreenDrawTarget(GUI_SCREEN_LCD_TOP);
-    return img;
+    return loadBoxartInternal(e);
 }
 
 // Data and elements used dynamically by the downloadProgressCallback function
@@ -854,7 +852,7 @@ static void downloadEntry(Entry e)
 }
 
 #define UPDATE_TEMP_FILENAME "tmpUpdateFile"
-#define UPDATE_FILENAME "NDS-Shop.nds"
+#define UPDATE_FILENAME "DSi-Shop.nds"
 
 // Handles the download of the update file
 static void downloadUpdate(void)
@@ -2296,6 +2294,9 @@ void menuBegin(MenuEnum startingMenu)
     initNavbar();
 
     switchMenu(startingMenu);
+
+    if (settings.checkUpdateOnStart)
+        handleUpdateCheck();
 
     while (menu != MENU_EXIT) {
         switch (menu) {

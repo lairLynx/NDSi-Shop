@@ -1,5 +1,6 @@
 #include "image.h"
 
+#include "software.h"
 #include <gl2d.h>
 #include <png.h>
 
@@ -14,7 +15,36 @@ struct GuiImage {
     glImage* image;
     int textureId;
     int colorTintPalId;
+    u16* softwarePixels;
+    u16 tintColor;
 };
+
+static u16* createSoftwarePixels(const unsigned* bitmap, const u16* pal, size_t width, size_t height,
+    size_t bitmapWidth, GuiImageTextureType textureType)
+{
+    u16* pixels = malloc(width * height * sizeof(u16));
+    if (!pixels)
+        return NULL;
+
+    if (textureType == GUI_IMAGE_TEXTURE_TYPE_RGB256) {
+        const u8* indices = (const u8*)bitmap;
+        for (size_t y = 0; y < height; y++) {
+            for (size_t x = 0; x < width; x++) {
+                u8 index = indices[y * bitmapWidth + x];
+                pixels[y * width + x] = (index && pal) ? (pal[index] | BIT(15)) : 0;
+            }
+        }
+    } else if (textureType == GUI_IMAGE_TEXTURE_TYPE_RGBA) {
+        memcpy(pixels, bitmap, width * height * sizeof(u16));
+    } else {
+        const u8* rgb = (const u8*)bitmap;
+        for (size_t i = 0; i < width * height; i++) {
+            pixels[i] = RGB15(rgb[i * 3] >> 3, rgb[i * 3 + 1] >> 3, rgb[i * 3 + 2] >> 3) | BIT(15);
+        }
+    }
+
+    return pixels;
+}
 
 static void bitmapToRGB5A1(u8* bitmap, size_t width, size_t height, GuiImageTextureType textureType)
 {
@@ -181,6 +211,8 @@ GuiImage newGuiImage(const unsigned* bitmap, const u16* pal, size_t width, size_
     gi->posY = 0;
     gi->image = malloc(sizeof(glImage));
     gi->colorTintPalId = 0;
+    gi->softwarePixels = NULL;
+    gi->tintColor = 0;
 
     size_t glTextureSizeWidth = calculateGlTextureSizeEnum(bitmapWidth);
     size_t glTextureSizeHeight = calculateGlTextureSizeEnum(bitmapHeight);
@@ -212,8 +244,19 @@ GuiImage newGuiImage(const unsigned* bitmap, const u16* pal, size_t width, size_
         pal,
         (u8*)bitmap);
 
-    if (gi->textureId == -1)
+    if (gi->textureId == -1) {
+        free(gi->image);
+        free(gi);
         return NULL;
+    }
+
+    gi->softwarePixels = createSoftwarePixels(bitmap, pal, width, height, bitmapWidth, textureType);
+    if (!gi->softwarePixels) {
+        glDeleteTextures(1, &gi->textureId);
+        free(gi->image);
+        free(gi);
+        return NULL;
+    }
 
     // Set scale to fit inside resized width and height
     if (resizeWidth || resizeHeight) {
@@ -269,6 +312,7 @@ void freeGuiImage(GuiImage gi)
     if (gi->colorTintPalId)
         glDeleteTextures(1, &gi->colorTintPalId);
 
+    free(gi->softwarePixels);
     free(gi->image);
     free(gi);
 }
@@ -287,6 +331,8 @@ void setGuiImageAlign(GuiImage gi, GuiImageHAlign hAlignment, GuiImageVAlign vAl
 
 void setGuiImageColorTint(GuiImage gi, u16 color)
 {
+    gi->tintColor = color | BIT(15);
+
     u16 colorTintPal[256];
     for (u16 i = 0; i < 256; i++)
         colorTintPal[i] = color;
@@ -333,6 +379,12 @@ void drawGuiImagePos(GuiImage gi, size_t posX, size_t posY)
     default:
         y = posY;
         break;
+    }
+
+    if (guiSoftwareIsActive()) {
+        guiSoftwareBlit(gi->softwarePixels, gi->width, gi->height, x, y,
+            gi->width, gi->height, gi->tintColor != 0, gi->tintColor);
+        return;
     }
 
     glSetActiveTexture(gi->textureId);

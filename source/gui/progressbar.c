@@ -1,5 +1,6 @@
 #include "progressbar.h"
 
+#include "software.h"
 #include <gl2d.h>
 #include "style.h"
 
@@ -46,6 +47,16 @@ void setGuiProgressbarPercent(GuiProgressbar gp, u8 percent)
 
 void drawGuiProgressbarPos(GuiProgressbar gp, size_t posX, size_t posY)
 {
+    if (guiSoftwareIsActive()) {
+        guiSoftwareFillRect(posX, posY, gp->width, gp->height, gp->bgColor);
+        if (gp->percent) {
+            size_t filledWidth = gp->width * gp->percent / 100;
+            if (filledWidth)
+                guiSoftwareFillRect(posX, posY, filledWidth, gp->height, gp->progressColor);
+        }
+        return;
+    }
+
     glBoxFilled(
         posX,
         posY,

@@ -1,5 +1,6 @@
 #include "box.h"
 
+#include "software.h"
 #include <gl2d.h>
 
 struct GuiBox {
@@ -60,6 +61,22 @@ void setGuiBoxBorder(GuiBox gb, size_t borderSize, u16 borderColor)
 
 void drawGuiBoxPos(GuiBox gb, size_t posX, size_t posY)
 {
+    if (guiSoftwareIsActive()) {
+        if (gb->borderSize && gb->borderColor && gb->color) {
+            guiSoftwareFillRect(posX, posY, gb->width, gb->height, gb->borderColor);
+            guiSoftwareFillRect(posX + gb->borderSize, posY + gb->borderSize,
+                gb->width - gb->borderSize * 2, gb->height - gb->borderSize * 2, gb->color);
+        } else if (gb->color) {
+            guiSoftwareFillRect(posX, posY, gb->width, gb->height, gb->color);
+        } else if (gb->borderSize && gb->borderColor) {
+            guiSoftwareFillRect(posX, posY, gb->width, gb->borderSize, gb->borderColor);
+            guiSoftwareFillRect(posX, posY + gb->height - gb->borderSize, gb->width, gb->borderSize, gb->borderColor);
+            guiSoftwareFillRect(posX, posY, gb->borderSize, gb->height, gb->borderColor);
+            guiSoftwareFillRect(posX + gb->width - gb->borderSize, posY, gb->borderSize, gb->height, gb->borderColor);
+        }
+        return;
+    }
+
     if (gb->borderSize && gb->borderColor && gb->color) {
         glBoxFilled(
             posX,
