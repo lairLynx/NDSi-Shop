@@ -455,7 +455,7 @@ class GenericCpuBinary(GenericBinary):
             out_path_dir = get_parent_dir(out_path_base)
             self.add_dir_target(out_path_dir)
 
-            in_path = in_out_file.in_path
+            in_path = in_out_file.in_path.replace('\\', '/')
 
             out_path_c = out_path_base + '.c'
             out_path_h = out_path_base + '.h'

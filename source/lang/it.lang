@@ -58,6 +58,9 @@ msgstr "Richiesta"
 msgid "Download failed"
 msgstr "Download fallito"
 
+msgid "Wi-Fi connection unavailable"
+msgstr "Connessione Wi-Fi non disponibile"
+
 msgid "could not create download directory"
 msgstr "impossibile creare la directory di download"
 
@@ -129,6 +132,9 @@ msgstr "Nessun database trovato"
 
 msgid "Loading database..."
 msgstr "Caricando database..."
+
+msgid "Loading box art..."
+msgstr "Caricamento copertina..."
 
 msgid "Settings"
 msgstr "Impostazioni"

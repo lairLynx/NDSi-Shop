@@ -235,12 +235,15 @@ DatabaseInitStatus initDatabase(Database d)
 
         d->path = strdup(dbFilePath);
 
-        if (downloadFile(TEMP_DB_PATH, d->value, NULL) == DOWNLOAD_SUCCESS) {
+        DownloadStatus downloadStatus = downloadFile(TEMP_DB_PATH, d->value, NULL);
+        if (downloadStatus == DOWNLOAD_SUCCESS) {
             if (!renamePath(TEMP_DB_PATH, dbFilePath))
                 return DATABASE_INIT_ERR_DOWNLOAD;
         } else {
             if (fileExists(dbFilePath))
                 usingCachedDb = true;
+            else if (downloadStatus == DOWNLOAD_ERR_WIFI_NOT_CONNECTED)
+                return DATABASE_INIT_ERR_WIFI_NOT_CONNECTED;
             else
                 return DATABASE_INIT_ERR_DOWNLOAD;
         }
@@ -349,6 +352,16 @@ Entry* searchDatabase(Database d, const char* searchTitle, size_t pageSize, size
     return results;
 }
 
+static bool databaseListContains(Database* databases, size_t count, const char* name, const char* value)
+{
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(getDatabaseName(databases[i]), name) == 0
+            && strcmp(getDatabaseValue(databases[i]), value) == 0)
+            return true;
+    }
+    return false;
+}
+
 Database* getDatabaseList(size_t* databasesCount)
 {
     *databasesCount = 0;
@@ -370,7 +383,9 @@ Database* getDatabaseList(size_t* databasesCount)
     if (!fp) {
         fp = fopen(DATABASE_LIST_PATH, "w");
         if (fp) {
-            fprintf(fp, "NDS-Shop\thttps://db-nds-shop.fr/db.txt\n");
+            fprintf(fp,
+                    "NDS-Shop\thttps://db-nds-shop.fr/db.txt\n"
+                    "Universal-DB\thttps://gist.githubusercontent.com/cavv-dev/3c0cbc1b63ac8ca0c1d9f549403afbf1/raw/\n");
             fclose(fp);
             fp = fopen(DATABASE_LIST_PATH, "r");
         }
@@ -400,6 +415,37 @@ Database* getDatabaseList(size_t* databasesCount)
     }
 
     fclose(fp);
+
+    const char* requiredEntries[][2] = {
+        {"NDS-Shop", "https://db-nds-shop.fr/db.txt"},
+        {"Universal-DB", "https://gist.githubusercontent.com/cavv-dev/3c0cbc1b63ac8ca0c1d9f549403afbf1/raw/"},
+    };
+
+    size_t originalCount = count;
+    bool missingEntries = false;
+    for (size_t i = 0; i < sizeof(requiredEntries) / sizeof(requiredEntries[0]); i++) {
+        if (!databaseListContains(databases, count, requiredEntries[i][0], requiredEntries[i][1])) {
+            missingEntries = true;
+            if (count >= capacity) {
+                capacity *= 2;
+                databases = realloc(databases, capacity * sizeof(Database));
+            }
+            databases[count++] = newDatabase(requiredEntries[i][0], requiredEntries[i][1]);
+        }
+    }
+
+    if (missingEntries) {
+        FILE* out = fopen(DATABASE_LIST_PATH, "a");
+        if (out) {
+            for (size_t i = 0; i < sizeof(requiredEntries) / sizeof(requiredEntries[0]); i++) {
+                if (!databaseListContains(databases, originalCount, requiredEntries[i][0], requiredEntries[i][1])) {
+                    fprintf(out, "%s\t%s\n", requiredEntries[i][0], requiredEntries[i][1]);
+                }
+            }
+            fclose(out);
+        }
+    }
+
     *databasesCount = count;
     return databases;
 }

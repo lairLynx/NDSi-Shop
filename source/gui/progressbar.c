@@ -1,6 +1,7 @@
 #include "progressbar.h"
 
 #include <gl2d.h>
+#include "style.h"
 
 struct GuiProgressBar {
     size_t width;
@@ -19,8 +20,9 @@ GuiProgressbar newGuiProgressbar(size_t width, size_t height, u16 bgColor, u16 p
     gp->height = height;
     gp->posX = 0;
     gp->posY = 0;
-    gp->bgColor = bgColor;
-    gp->progressColor = progressColor;
+    // default to themed colors when 0 passed
+    gp->bgColor = bgColor ? bgColor : guiGetColor(COLOR_BG_2);
+    gp->progressColor = progressColor ? progressColor : guiGetColor(COLOR_PRIMARY);
     gp->percent = 0;
 
     return gp;

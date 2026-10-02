@@ -40,7 +40,7 @@ extern struct Settings settings;
     : "")
 
 #define colorSchemeStr(x) \
-    ((x) == COLOR_SCHEME_1 ? "NDS-Shop" \
+    ((x) == COLOR_SCHEME_1 ? "DSi-Shop" \
     : (x) == COLOR_SCHEME_2 ? "Dark" \
     : (x) == COLOR_SCHEME_3 ? "Blue" \
     : (x) == COLOR_SCHEME_4 ? "Amber" \

@@ -9,13 +9,17 @@ typedef enum {
 typedef enum {
     DOWNLOAD_SUCCESS,
     DOWNLOAD_STOPPED,
+    DOWNLOAD_ERR_WIFI_NOT_CONNECTED,
     DOWNLOAD_ERR_NOT_OK,
     DOWNLOAD_ERR_INIT_FAILED,
     DOWNLOAD_ERR_FILE_OPEN_FAILED,
     DOWNLOAD_ERR_PERFORM_FAILED
 } DownloadStatus;
 
+typedef void (*DownloadFrameCallback)(void);
+
 NetworkingInitStatus initNetworking(void);
 DownloadStatus downloadFile(const char* path, const char* url, size_t (*downloadProgressCallback)(void*, curl_off_t, curl_off_t, curl_off_t, curl_off_t));
+DownloadStatus downloadFilePumped(const char* path, const char* url, DownloadFrameCallback frameCallback);
 void stopDownload(void);
 DownloadStatus downloadToString(char* result, size_t bufferSize, const char* url);

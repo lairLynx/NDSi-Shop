@@ -22,7 +22,7 @@ bool defaultSettings(void)
 
     settings.colorScheme = COLOR_SCHEME_1;
     settings.lang = LANG_EN;
-    settings.checkUpdateOnStart = true;
+    settings.checkUpdateOnStart = false;
 
     return true;
 }

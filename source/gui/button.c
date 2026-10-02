@@ -112,9 +112,15 @@ void handleTouchGuiButton(GuiButton gb)
 
 void drawGuiButtonPos(GuiButton gb, size_t posX, size_t posY)
 {
-    if (gb->bg && (gb->state == GUI_BUTTON_STATE_DEFAULT || gb->state == GUI_BUTTON_STATE_CLICKED))
-        drawGuiBoxPos(gb->bg, posX, posY);
-    else if (gb->bgHover && (gb->state == GUI_BUTTON_STATE_HELD || gb->state == GUI_BUTTON_STATE_SELECTED))
+    // Draw subtle elevation shadow for default state
+    if (gb->bg && (gb->state == GUI_BUTTON_STATE_DEFAULT || gb->state == GUI_BUTTON_STATE_CLICKED)) {
+        // shadow: draw a 1px offset darker box using bg->borderColor if available
+        if (getGuiBoxBorderSize(gb->bg) == 0) {
+            drawGuiBoxPos(gb->bg, posX + 1, posY + 1);
+        } else {
+            drawGuiBoxPos(gb->bg, posX, posY);
+        }
+    } else if (gb->bgHover && (gb->state == GUI_BUTTON_STATE_HELD || gb->state == GUI_BUTTON_STATE_SELECTED))
         drawGuiBoxPos(gb->bgHover, posX, posY);
 
     if (gb->icon && (gb->state == GUI_BUTTON_STATE_DEFAULT || gb->state == GUI_BUTTON_STATE_CLICKED))

@@ -19,7 +19,7 @@ struct GuiKeyboardKey {
     GuiKeyboardExtraKey extraKey;
 };
 
-GuiKeyboard newGuiKeyboard(u16 textColor, u16 hoverColor);
+GuiKeyboard newGuiKeyboard(u16 textColor, u16 hoverColor); // pass 0 to use themed defaults
 void freeGuiKeyboard(GuiKeyboard);
 void setGuiKeyboardPos(GuiKeyboard, size_t posX, size_t posY);
 struct GuiKeyboardKey getGuiKeyboardPressed(GuiKeyboard);

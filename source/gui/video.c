@@ -13,7 +13,7 @@ static void initSubSprites(void)
         for (u8 x = 0; x < 4; x++, id++) {
             oamSub.oamMemory[id].attribute[0] = ATTR0_BMP | ATTR0_SQUARE | (64 * y);
             oamSub.oamMemory[id].attribute[1] = ATTR1_SIZE_64 | (64 * x);
-            oamSub.oamMemory[id].attribute[2] = ATTR2_ALPHA(1) | (8 * 32 * y) | (8 * x);
+            oamSub.oamMemory[id].attribute[2] = ATTR2_ALPHA(15) | (8 * 32 * y) | (8 * x);
         }
     }
 

@@ -27,14 +27,17 @@
 #include "utils/filesystem.h"
 #include "utils/math.h"
 #include "utils/strings.h"
+#include <dirent.h>
 #include <nds.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 // Current menu
 static MenuEnum menu;
 
-// Choose color macro
-#define col(x) colorSchemes[settings.colorScheme][x]
+// Choose color macro (kept for backward compatibility but now uses guiGetColor)
+#include "gui/style.h"
+#define col(x) guiGetColor(x)
 
 // Translate string macro
 #define tr(x) gettext(x)
@@ -195,14 +198,14 @@ static bool keyboardEdit(char* str, size_t maxLength)
     setGuiBoxBorder(textboxBg, 2, col(COLOR_PRIMARY));
     setGuiBoxPos(textboxBg, 16, 56);
 
-    GuiText textboxTxt = newGuiText(tempStr, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText textboxTxt = newGuiText(tempStr, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(textboxTxt, 128, 96);
     setGuiTextAlignment(textboxTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(textboxTxt, 214);
     setGuiTextMaxHeight(textboxTxt, 64);
     setGuiTextWrap(textboxTxt, true);
 
-    GuiKeyboard keyboard = newGuiKeyboard(col(COLOR_TEXT_2), col(COLOR_PRIMARY));
+    GuiKeyboard keyboard = newGuiKeyboard(0, 0);
     setGuiKeyboardPos(keyboard, 0, 16);
 
     GuiBox btnBg = newGuiBox(70, 28, col(COLOR_BG_2));
@@ -210,8 +213,8 @@ static bool keyboardEdit(char* str, size_t maxLength)
     GuiBox btnBgHover = newGuiBox(70, 28, col(COLOR_PRIMARY));
 
     GuiText btnTxt[2];
-    btnTxt[0] = newGuiText(tr("Ok"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
-    btnTxt[1] = newGuiText(tr("Cancel"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    btnTxt[0] = newGuiText(tr("Ok"), GUI_TEXT_SIZE_MEDIUM, 0);
+    btnTxt[1] = newGuiText(tr("Cancel"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextAlignment(btnTxt[0], GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextAlignment(btnTxt[1], GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
@@ -299,11 +302,11 @@ static bool windowPrompt(const char* title, const char* message, const char* btn
     setGuiBoxBorder(promptBg, 2, col(COLOR_PRIMARY));
     setGuiBoxPos(promptBg, 6, 6);
 
-    GuiText titleTxt = newGuiText(title, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText titleTxt = newGuiText(title, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(titleTxt, 128, 25);
     setGuiTextAlignment(titleTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText messageTxt = newGuiText(message, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText messageTxt = newGuiText(message, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(messageTxt, 128, 78);
     setGuiTextAlignment(messageTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(messageTxt, 224);
@@ -319,7 +322,7 @@ static bool windowPrompt(const char* title, const char* message, const char* btn
     GuiButton btn1 = NULL;
     GuiButton btn2 = NULL;
 
-    btn1Txt = newGuiText(btn1Label, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    btn1Txt = newGuiText(btn1Label, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextAlignment(btn1Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
     size_t btn1Width = max(70, getGuiTextWidth(btn1Txt) + 20);
@@ -334,7 +337,7 @@ static bool windowPrompt(const char* title, const char* message, const char* btn
     setGuiButtonPos(btn1, 93, 152);
 
     if (btn2Label) {
-        btn2Txt = newGuiText(btn2Label, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+        btn2Txt = newGuiText(btn2Label, GUI_TEXT_SIZE_MEDIUM, 0);
         setGuiTextAlignment(btn2Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
         size_t btn2Width = max(70, getGuiTextWidth(btn2Txt) + 20);
@@ -407,7 +410,7 @@ static void showMessage(const char* message)
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
 
-    GuiText messageTxt = newGuiText(message, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText messageTxt = newGuiText(message, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(messageTxt, 128, 96);
     setGuiTextAlignment(messageTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(messageTxt, 244);
@@ -458,21 +461,141 @@ static void drawBlank(void)
     freeGuiBox(bg);
 }
 
-// Downloads and loads a box art file of a given entry into a new GuiImage element
-// Returns the created GuiImage element
-static GuiImage loadBoxart(Entry e)
+static u32 hashString(const char* str)
+{
+    u32 hash = 2166136261u;
+    while (*str) {
+        hash ^= (u8)*str;
+        hash *= 16777619u;
+        str++;
+    }
+    return hash;
+}
+
+static bool encodeUrlComponent(const char* value, char* encoded, size_t encodedSize)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    size_t pos = 0;
+
+    while (*value) {
+        unsigned char c = (unsigned char)*value++;
+        bool unreserved = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
+            || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~';
+        size_t needed = unreserved ? 1 : 3;
+
+        if (pos + needed >= encodedSize)
+            return false;
+
+        if (unreserved) {
+            encoded[pos++] = c;
+        } else {
+            encoded[pos++] = '%';
+            encoded[pos++] = hex[c >> 4];
+            encoded[pos++] = hex[c & 0x0F];
+        }
+    }
+
+    encoded[pos] = '\0';
+    return true;
+}
+
+static void drawBoxartLoadingFrame(void)
+{
+    guiLoop();
+    drawScreens();
+}
+
+static GuiImage loadBoxartFromUrl(const char* boxartUrl, const char* boxartDir)
 {
     char boxartFilename[NAME_MAX];
-    strncpy(boxartFilename, getEntryBoxartUrl(e), sizeof(boxartFilename) - 1);
-    safeStr(boxartFilename);
+    snprintf(boxartFilename, sizeof(boxartFilename), "%08X.png", (unsigned int)hashString(boxartUrl));
 
     char boxartPath[PATH_MAX];
-    joinPath(boxartPath, CACHE_DIR, boxartFilename);
+    joinPath(boxartPath, boxartDir, boxartFilename);
 
-    if (!fileExists(boxartPath))
-        downloadFile(boxartPath, getEntryBoxartUrl(e), NULL);
+    if (!fileExists(boxartPath)) {
+        DownloadStatus status = downloadFilePumped(boxartPath, boxartUrl, drawBoxartLoadingFrame);
+        if (status != DOWNLOAD_SUCCESS)
+            return NULL;
+    }
 
-    return newGuiImagePNG(boxartPath, 144, 144);
+    GuiImage img = newGuiImagePNG(boxartPath, 128, 128);
+    if (!img)
+        deleteFile(boxartPath);
+
+    return img;
+}
+
+// Downloads and loads a box art file of a given entry into a new GuiImage element
+// Returns the created GuiImage element
+static GuiImage loadBoxartInternal(Entry e)
+{
+    char boxartDir[PATH_MAX];
+    joinPath(boxartDir, CACHE_DIR, "boxart");
+    createDirR(boxartDir);
+
+    const char* boxartUrl = getEntryBoxartUrl(e);
+    if (boxartUrl && boxartUrl[0] != '\0') {
+        char encodedUrl[PATH_MAX];
+        char resizedUrl[PATH_MAX];
+
+        if (encodeUrlComponent(boxartUrl, encodedUrl, sizeof(encodedUrl))) {
+            int urlLength = snprintf(resizedUrl, sizeof(resizedUrl),
+                "https://wsrv.nl/?url=%s&w=128&h=128&fit=inside&output=png",
+                encodedUrl);
+            if (urlLength > 0 && (size_t)urlLength < sizeof(resizedUrl)) {
+                GuiImage img = loadBoxartFromUrl(resizedUrl, boxartDir);
+                if (img)
+                    return img;
+            }
+        }
+
+        GuiImage img = loadBoxartFromUrl(boxartUrl, boxartDir);
+        if (img)
+            return img;
+    }
+
+    const char* lookupNames[] = { getEntryFileName(e), getEntryTitle(e) };
+    for (size_t i = 0; i < sizeof(lookupNames) / sizeof(lookupNames[0]); i++) {
+        const char* lookupName = lookupNames[i];
+        if (!lookupName || lookupName[0] == '\0')
+            continue;
+
+        size_t nameLength = strlen(lookupName);
+        if (i == 0) {
+            const char* extension = strrchr(lookupName, '.');
+            if (extension)
+                nameLength = (size_t)(extension - lookupName);
+        }
+
+        char name[NAME_MAX];
+        if (nameLength >= sizeof(name))
+            continue;
+        memcpy(name, lookupName, nameLength);
+        name[nameLength] = '\0';
+
+        char encodedName[NAME_MAX * 3];
+        if (!encodeUrlComponent(name, encodedName, sizeof(encodedName)))
+            continue;
+
+        char fallbackUrl[PATH_MAX];
+        snprintf(fallbackUrl, sizeof(fallbackUrl),
+            "https://thumbnails.libretro.com/Nintendo%%20-%%20Nintendo%%20DS/Named_Boxarts/%s.png",
+            encodedName);
+
+        GuiImage img = loadBoxartFromUrl(fallbackUrl, boxartDir);
+        if (img)
+            return img;
+    }
+
+    return NULL;
+}
+
+static GuiImage loadBoxart(Entry e)
+{
+    GuiImage img = loadBoxartInternal(e);
+    setNextGuiScreenDrawTarget(GUI_SCREEN_LCD_TOP);
+    return img;
 }
 
 // Data and elements used dynamically by the downloadProgressCallback function
@@ -532,7 +655,7 @@ static DownloadStatus downloadGui(const char* path, const char* url, const char*
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
 
-    dlData.fileNameTxt = newGuiText(fileName, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    dlData.fileNameTxt = newGuiText(fileName, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(dlData.fileNameTxt, 14, 56);
     setGuiTextAlignment(dlData.fileNameTxt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_BOTTOM);
     setGuiTextMaxWidth(dlData.fileNameTxt, 216);
@@ -545,17 +668,17 @@ static DownloadStatus downloadGui(const char* path, const char* url, const char*
     dlData.progressBar = newGuiProgressbar(224, 22, col(COLOR_BG_2), col(COLOR_PRIMARY));
     setGuiProgressbarPos(dlData.progressBar, 14, 62);
 
-    dlData.percentTxt = newGuiText("", GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    dlData.percentTxt = newGuiText("", GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(dlData.percentTxt, 128, 73);
     setGuiTextAlignment(dlData.percentTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    dlData.progressTxt = newGuiText("", GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    dlData.progressTxt = newGuiText("", GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(dlData.progressTxt, 14, 92);
 
     GuiBox cancelBtnBg = newGuiBox(90, 34, col(COLOR_BG_2));
     setGuiBoxBorder(cancelBtnBg, 2, col(COLOR_PRIMARY));
     GuiBox cancelBtnBgHover = newGuiBox(90, 34, col(COLOR_PRIMARY));
-    GuiText cancelBtnTxt = newGuiText(tr("Cancel"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText cancelBtnTxt = newGuiText(tr("Cancel"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextAlignment(cancelBtnTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     dlData.cancelBtn = newGuiButton(90, 34);
     setGuiButtonPos(dlData.cancelBtn, 83, 124);
@@ -613,6 +736,10 @@ static void downloadEntry(Entry e)
 
     switch (dlStatus) {
     case DOWNLOAD_STOPPED:
+        return;
+    case DOWNLOAD_ERR_WIFI_NOT_CONNECTED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("Wi-Fi connection unavailable"));
+        windowPrompt(tr("Error"), tempMessage, tr("Ok"), NULL);
         return;
     case DOWNLOAD_ERR_NOT_OK:
         snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("bad response status"));
@@ -793,6 +920,9 @@ static bool loadDatabase(Database d)
     case DATABASE_INIT_ERR_DOWNLOAD:
         snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Failed to initialize database"), tr("download failed"));
         break;
+    case DATABASE_INIT_ERR_WIFI_NOT_CONNECTED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Failed to initialize database"), tr("Wi-Fi connection unavailable"));
+        break;
     case DATABASE_INIT_ERR_FILE_NOT_FOUND:
         snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Failed to initialize database"), tr("file not found"));
         break;
@@ -864,7 +994,7 @@ static void browseMenu(void)
     char menuTitleText[32];
     snprintf(menuTitleText, sizeof(menuTitleText), "%s (%d)", tr("Browse"), (db ? getDatabaseSize(db) : 0));
 
-    GuiText menuTitle = newGuiText(menuTitleText, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText menuTitle = newGuiText(menuTitleText, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
@@ -872,14 +1002,14 @@ static void browseMenu(void)
     setGuiBoxBorder(btnBg, 2, col(COLOR_PRIMARY));
     GuiBox btnBgHover = newGuiBox(SCREEN_WIDTH, 32, col(COLOR_PRIMARY));
 
-    GuiText btn1Txt = newGuiText(tr("Search by title"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText btn1Txt = newGuiText(tr("Search by title"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(btn1Txt, 12, 0);
     setGuiTextAlignment(btn1Txt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
     GuiButton btn1 = newGuiButton(SCREEN_WIDTH, 32);
     setGuiButtonBg(btn1, btnBg, btnBgHover);
     setGuiButtonLabel(btn1, btn1Txt);
 
-    GuiText btn2Txt = newGuiText(tr("Browse all"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText btn2Txt = newGuiText(tr("Browse all"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(btn2Txt, 12, 0);
     setGuiTextAlignment(btn2Txt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
     GuiButton btn2 = newGuiButton(SCREEN_WIDTH, 32);
@@ -887,7 +1017,7 @@ static void browseMenu(void)
     setGuiButtonLabel(btn2, btn2Txt);
     setGuiButtonPos(btn2, 0, 32);
 
-    GuiText noDatabaseTxt = newGuiText(tr("No database loaded or initialized"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_3));
+    GuiText noDatabaseTxt = newGuiText(tr("No database loaded or initialized"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(noDatabaseTxt, 128, 80);
     setGuiTextAlignment(noDatabaseTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(noDatabaseTxt, 244);
@@ -975,12 +1105,18 @@ static void resultsMenu(void)
 
     char menuTitleText[16];
     snprintf(menuTitleText, sizeof(menuTitleText), "%s %d (%d)", tr("Page"), searchPage, resultsCount);
-    GuiText menuTitle = newGuiText(menuTitleText, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText menuTitle = newGuiText(menuTitleText, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText prevPageTxt = newGuiText(tr("Previous"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
-    GuiText nextPageTxt = newGuiText(tr("Next"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText previewLoadingText = newGuiText(tr("Loading box art..."), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextPos(previewLoadingText, 128, 156);
+    setGuiTextAlignment(previewLoadingText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+
+    GuiImage resultPreview = NULL;
+
+    GuiText prevPageTxt = newGuiText(tr("Previous"), GUI_TEXT_SIZE_SMALL, 0);
+    GuiText nextPageTxt = newGuiText(tr("Next"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(prevPageTxt, 26, 180);
     setGuiTextPos(nextPageTxt, 230, 180);
     setGuiTextAlignment(prevPageTxt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
@@ -1001,18 +1137,18 @@ static void resultsMenu(void)
     GuiButton resultsBtn[resultsCount];
 
     for (size_t i = 0; i < resultsCount; i++) {
-        resultsBtnTxt[i] = newGuiText(getEntryTitle(results[i]), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+        resultsBtnTxt[i] = newGuiText(getEntryTitle(results[i]), GUI_TEXT_SIZE_SMALL, 0);
         setGuiTextPos(resultsBtnTxt[i], 12, 0);
         setGuiTextAlignment(resultsBtnTxt[i], GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(resultsBtnTxt[i], 186);
         setGuiTextMaxHeight(resultsBtnTxt[i], 32);
         setGuiTextWrap(resultsBtnTxt[i], true);
 
-        resultsBtnTxtPlatform[i] = newGuiText(getEntryPlatform(results[i]), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+        resultsBtnTxtPlatform[i] = newGuiText(getEntryPlatform(results[i]), GUI_TEXT_SIZE_SMALL, 0);
         setGuiTextAlignment(resultsBtnTxtPlatform[i], GUI_TEXT_H_ALIGN_RIGHT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(resultsBtnTxtPlatform[i], 48);
 
-        resultsBtnTxtRegion[i] = newGuiText(getEntryRegion(results[i]), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+        resultsBtnTxtRegion[i] = newGuiText(getEntryRegion(results[i]), GUI_TEXT_SIZE_SMALL, 0);
         setGuiTextAlignment(resultsBtnTxtRegion[i], GUI_TEXT_H_ALIGN_RIGHT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(resultsBtnTxtRegion[i], 48);
 
@@ -1025,6 +1161,10 @@ static void resultsMenu(void)
     addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
     addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
+
+    if (resultPreview) {
+        addToGuiScreen(topScreen, resultPreview, GUI_ELEMENT_TYPE_IMAGE);
+    }
 
     if (prevPageEnabled) {
         addToGuiScreen(topScreen, prevPageTxt, GUI_ELEMENT_TYPE_TEXT);
@@ -1041,6 +1181,9 @@ static void resultsMenu(void)
     addNavbarToGuiScreen(bottomScreen);
 
     bool firstRun = true;
+    bool previewLoadingVisible = false;
+    size_t previewDelay = 0;
+    size_t attemptedPreviewIndex = (size_t)-1;
 
     size_t scrollOffset = 0;
     size_t selectOffset = 0;
@@ -1086,6 +1229,12 @@ static void resultsMenu(void)
 
             if (scrollAction || firstRun) {
                 resetGuiButtonState(resultsBtn[scrollOffset + selectOffset]);
+                previewDelay = 8;
+                attemptedPreviewIndex = (size_t)-1;
+                if (previewLoadingVisible) {
+                    removeFromGuiScreen(topScreen, previewLoadingText);
+                    previewLoadingVisible = false;
+                }
 
                 if (!firstRun) {
                     // Remove all displayed results
@@ -1134,8 +1283,15 @@ static void resultsMenu(void)
                     addToGuiScreen(bottomScreen, resultsBtnTxtPlatform[i + scrollOffset], GUI_ELEMENT_TYPE_TEXT);
                     addToGuiScreen(bottomScreen, resultsBtnTxtRegion[i + scrollOffset], GUI_ELEMENT_TYPE_TEXT);
                 }
+
             } else if (selectAction) {
                 resetGuiButtonState(resultsBtn[scrollOffset + selectOffset]);
+                previewDelay = 8;
+                attemptedPreviewIndex = (size_t)-1;
+                if (previewLoadingVisible) {
+                    removeFromGuiScreen(topScreen, previewLoadingText);
+                    previewLoadingVisible = false;
+                }
 
                 if (selectUpAction && selectOffset > 0)
                     selectOffset--;
@@ -1168,6 +1324,37 @@ static void resultsMenu(void)
             }
         }
 
+        if (previewDelay > 0) {
+            previewDelay--;
+        } else if (resultsCount > 0 && menu == MENU_NONE) {
+            size_t selectedIndex = scrollOffset + selectOffset;
+            if (attemptedPreviewIndex != selectedIndex) {
+                if (!previewLoadingVisible) {
+                    addToGuiScreen(topScreen, previewLoadingText, GUI_ELEMENT_TYPE_TEXT);
+                    previewLoadingVisible = true;
+                    previewDelay = 2;
+                } else {
+                    attemptedPreviewIndex = selectedIndex;
+                    GuiImage nextPreview = loadBoxart(results[selectedIndex]);
+
+                    removeFromGuiScreen(topScreen, previewLoadingText);
+                    previewLoadingVisible = false;
+
+                    if (resultPreview) {
+                        removeFromGuiScreen(topScreen, resultPreview);
+                        freeGuiImage(resultPreview);
+                    }
+
+                    resultPreview = nextPreview;
+                    if (resultPreview) {
+                        setGuiImagePos(resultPreview, 128, 84);
+                        setGuiImageAlign(resultPreview, GUI_IMAGE_H_ALIGN_CENTER, GUI_IMAGE_V_ALIGN_MIDDLE);
+                        addToGuiScreen(topScreen, resultPreview, GUI_ELEMENT_TYPE_IMAGE);
+                    }
+                }
+            }
+        }
+
         drawScreens();
 
         navbarSwitchMenu();
@@ -1179,12 +1366,17 @@ static void resultsMenu(void)
     freeGuiImage(brickColor1);
     freeGuiImage(brickColor2);
     freeGuiText(menuTitle);
+    freeGuiText(previewLoadingText);
     freeGuiText(prevPageTxt);
     freeGuiText(nextPageTxt);
     freeGuiImage(lButtonIcon);
     freeGuiImage(rButtonIcon);
     freeGuiBox(resultsBtnBg);
     freeGuiBox(resultsBtnBgHover);
+
+    if (resultPreview) {
+        freeGuiImage(resultPreview);
+    }
 
     for (size_t i = 0; i < resultsCount; i++) {
         freeGuiText(resultsBtnTxt[i]);
@@ -1210,45 +1402,45 @@ static void entryMenu(void)
     GuiImage brickColor1 = NULL;
     GuiImage brickColor2 = NULL;
 
-    GuiText entryTitle = newGuiText(getEntryTitle(selectedEntry), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText entryTitle = newGuiText(getEntryTitle(selectedEntry), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(entryTitle, 128, 20);
     setGuiTextAlignment(entryTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(entryTitle, 246);
     setGuiTextWrap(entryTitle, true);
     setGuiTextMaxHeight(entryTitle, 40);
 
-    GuiText entryPlatformLabel = newGuiText(tr("Platform"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText entryPlatformLabel = newGuiText(tr("Platform"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryPlatformLabel, 80, 46);
     setGuiTextAlignment(entryPlatformLabel, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText entryPlatform = newGuiText(getEntryPlatform(selectedEntry), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText entryPlatform = newGuiText(getEntryPlatform(selectedEntry), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryPlatform, 176, 46);
     setGuiTextAlignment(entryPlatform, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(entryPlatform, 96);
 
-    GuiText entryRegionLabel = newGuiText(tr("Region"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText entryRegionLabel = newGuiText(tr("Region"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryRegionLabel, 80, 64);
     setGuiTextAlignment(entryRegionLabel, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText entryRegion = newGuiText(getEntryRegion(selectedEntry), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText entryRegion = newGuiText(getEntryRegion(selectedEntry), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryRegion, 176, 64);
     setGuiTextAlignment(entryRegion, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(entryRegion, 96);
 
-    GuiText entryAuthorLabel = newGuiText(tr("Author"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText entryAuthorLabel = newGuiText(tr("Author"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryAuthorLabel, 80, 82);
     setGuiTextAlignment(entryAuthorLabel, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText entryAuthor = newGuiText(getEntryAuthor(selectedEntry), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText entryAuthor = newGuiText(getEntryAuthor(selectedEntry), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryAuthor, 176, 82);
     setGuiTextAlignment(entryAuthor, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(entryAuthor, 96);
 
-    GuiText entryVersionLabel = newGuiText(tr("Version"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText entryVersionLabel = newGuiText(tr("Version"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryVersionLabel, 80, 100);
     setGuiTextAlignment(entryVersionLabel, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText entryVersion = newGuiText(getEntryVersion(selectedEntry), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText entryVersion = newGuiText(getEntryVersion(selectedEntry), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(entryVersion, 176, 100);
     setGuiTextAlignment(entryVersion, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(entryVersion, 96);
@@ -1264,7 +1456,7 @@ static void entryMenu(void)
         snprintf(downloadBtnTxtText, sizeof(downloadBtnTxtText), "%s", tr("Download"));
     }
 
-    GuiText downloadBtnTxt = newGuiText(downloadBtnTxtText, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText downloadBtnTxt = newGuiText(downloadBtnTxtText, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextAlignment(downloadBtnTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
     GuiBox downloadBtnBg = newGuiBox(getGuiTextWidth(downloadBtnTxt) + 20, 34, col(COLOR_BG_2));
@@ -1276,9 +1468,31 @@ static void entryMenu(void)
     setGuiButtonBg(downloadBtn, downloadBtnBg, downloadBtnBgHover);
     setGuiButtonLabel(downloadBtn, downloadBtnTxt);
 
-    GuiImage boxart = loadBoxart(selectedEntry);
-
     addToGuiScreen(topScreen, topBg, GUI_ELEMENT_TYPE_BOX);
+    GuiText boxartLoadingText = newGuiText(tr("Loading box art..."), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextPos(boxartLoadingText, 128, 170);
+    setGuiTextAlignment(boxartLoadingText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    addToGuiScreen(topScreen, boxartLoadingText, GUI_ELEMENT_TYPE_TEXT);
+
+    addToGuiScreen(bottomScreen, bottomBg, GUI_ELEMENT_TYPE_BOX);
+    addToGuiScreen(bottomScreen, entryTitle, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryPlatformLabel, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryPlatform, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryRegionLabel, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryRegion, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryAuthorLabel, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryAuthor, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryVersionLabel, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, entryVersion, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, downloadBtn, GUI_ELEMENT_TYPE_BUTTON);
+
+    addNavbarToGuiScreen(bottomScreen);
+
+    setActiveScreens(topScreen, bottomScreen);
+
+    GuiImage boxart = loadBoxart(selectedEntry);
+    removeFromGuiScreen(topScreen, boxartLoadingText);
+    freeGuiText(boxartLoadingText);
 
     if (boxart) {
         setGuiImagePos(boxart, 128, 96);
@@ -1296,22 +1510,6 @@ static void entryMenu(void)
         addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
         addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
     }
-
-    addToGuiScreen(bottomScreen, bottomBg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(bottomScreen, entryTitle, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryPlatformLabel, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryPlatform, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryRegionLabel, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryRegion, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryAuthorLabel, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryAuthor, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryVersionLabel, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, entryVersion, GUI_ELEMENT_TYPE_TEXT);
-    addToGuiScreen(bottomScreen, downloadBtn, GUI_ELEMENT_TYPE_BUTTON);
-
-    addNavbarToGuiScreen(bottomScreen);
-
-    setActiveScreens(topScreen, bottomScreen);
 
     while (menu == MENU_NONE) {
         guiLoop();
@@ -1386,12 +1584,12 @@ static void databasesMenu(void)
     setGuiImagePos(brickColor1, 96, 72);
     setGuiImagePos(brickColor2, 96, 72);
 
-    GuiText menuTitle = newGuiText(tr("Databases"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText menuTitle = newGuiText(tr("Databases"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText prevPageTxt = newGuiText(tr("Previous"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
-    GuiText nextPageTxt = newGuiText(tr("Next"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT));
+    GuiText prevPageTxt = newGuiText(tr("Previous"), GUI_TEXT_SIZE_SMALL, 0);
+    GuiText nextPageTxt = newGuiText(tr("Next"), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(prevPageTxt, 26, 180);
     setGuiTextPos(nextPageTxt, 230, 180);
     setGuiTextAlignment(prevPageTxt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
@@ -1402,7 +1600,7 @@ static void databasesMenu(void)
     setGuiImagePos(lButtonIcon, 6, 174);
     setGuiImagePos(rButtonIcon, 234, 174);
 
-    GuiText noDatabasesTxt = newGuiText(tr("No databases found"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_3));
+    GuiText noDatabasesTxt = newGuiText(tr("No databases found"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(noDatabasesTxt, 128, 80);
     setGuiTextAlignment(noDatabasesTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
     setGuiTextMaxWidth(noDatabasesTxt, 244);
@@ -1421,12 +1619,12 @@ static void databasesMenu(void)
     GuiButton dbBtns[dbCount];
 
     for (size_t i = 0; i < dbCount; i++) {
-        dbBtnTxtNames[i] = newGuiText(getDatabaseName(dbList[i]), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+        dbBtnTxtNames[i] = newGuiText(getDatabaseName(dbList[i]), GUI_TEXT_SIZE_SMALL, 0);
         setGuiTextPos(dbBtnTxtNames[i], 10, 0);
         setGuiTextAlignment(dbBtnTxtNames[i], GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(dbBtnTxtNames[i], 236);
 
-        dbBtnTxtValues[i] = newGuiText(getDatabaseValue(dbList[i]), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+        dbBtnTxtValues[i] = newGuiText(getDatabaseValue(dbList[i]), GUI_TEXT_SIZE_SMALL, 0);
         setGuiTextAlignment(dbBtnTxtValues[i], GUI_TEXT_H_ALIGN_RIGHT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(dbBtnTxtValues[i], 236 - getGuiTextWidth(dbBtnTxtNames[i]));
 
@@ -1576,6 +1774,260 @@ static void databasesMenu(void)
     }
 }
 
+#define FOLDER_PICKER_DIRS_PER_PAGE 3
+#define FOLDER_PICKER_NAME_SIZE 256
+
+static size_t readFolderPage(const char* path, size_t page, char names[FOLDER_PICKER_DIRS_PER_PAGE][FOLDER_PICKER_NAME_SIZE], size_t* pageCount)
+{
+    DIR* directory = opendir(path);
+    size_t totalCount = 0;
+    size_t firstIndex = page * FOLDER_PICKER_DIRS_PER_PAGE;
+    *pageCount = 0;
+
+    if (!directory)
+        return 0;
+
+    struct dirent* entry;
+    while ((entry = readdir(directory)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        char childPath[PATH_MAX];
+        size_t pathLength = strlen(path);
+        int written = snprintf(childPath, sizeof(childPath), "%s%s%s", path,
+            (pathLength > 0 && path[pathLength - 1] == '/') ? "" : "/", entry->d_name);
+        if (written < 0 || (size_t)written >= sizeof(childPath))
+            continue;
+
+        struct stat statbuf;
+        if (stat(childPath, &statbuf) != 0 || !S_ISDIR(statbuf.st_mode))
+            continue;
+
+        if (totalCount >= firstIndex && *pageCount < FOLDER_PICKER_DIRS_PER_PAGE) {
+            snprintf(names[*pageCount], FOLDER_PICKER_NAME_SIZE, "%s", entry->d_name);
+            (*pageCount)++;
+        }
+        totalCount++;
+    }
+
+    closedir(directory);
+    return totalCount;
+}
+
+static void folderPickerParent(char* path)
+{
+    size_t rootLength = path[0] == '/' ? 1 : 0;
+    if (strncmp(path, "fat:/", 5) == 0)
+        rootLength = 5;
+    else if (strncmp(path, "sd:/", 4) == 0)
+        rootLength = 4;
+
+    size_t pathLength = strlen(path);
+    while (pathLength > rootLength && path[pathLength - 1] == '/')
+        path[--pathLength] = '\0';
+
+    if (pathLength <= rootLength)
+        return;
+
+    char* lastSlash = strrchr(path, '/');
+    if (!lastSlash)
+        return;
+
+    if ((size_t)(lastSlash - path) < rootLength)
+        path[rootLength] = '\0';
+    else
+        *lastSlash = '\0';
+}
+
+static bool chooseDownloadDirectory(char* selectedPath, size_t selectedPathSize)
+{
+    char currentPath[PATH_MAX];
+    snprintf(currentPath, sizeof(currentPath), "%s", settings.dlPath);
+    if (!dirExists(currentPath))
+        snprintf(currentPath, sizeof(currentPath), "/");
+
+    GuiScreen topScreen = newGuiScreen(GUI_SCREEN_LCD_TOP);
+    GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
+    GuiBox topBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox bottomBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox btnBg = newGuiBox(SCREEN_WIDTH, 27, col(COLOR_BG_2));
+    setGuiBoxBorder(btnBg, 1, col(COLOR_PRIMARY));
+    GuiBox btnBgHover = newGuiBox(SCREEN_WIDTH, 27, col(COLOR_PRIMARY));
+
+    GuiText title = newGuiText(tr("Downloads directory"), GUI_TEXT_SIZE_MEDIUM, 0);
+    setGuiTextPos(title, 128, 40);
+    setGuiTextAlignment(title, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    GuiText pathText = newGuiText(currentPath, GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextPos(pathText, 8, 72);
+    setGuiTextMaxWidth(pathText, 240);
+    setGuiTextMaxHeight(pathText, 48);
+    setGuiTextWrap(pathText, true);
+
+    GuiButton parentButton = newGuiButton(SCREEN_WIDTH, 27);
+    GuiText parentText = newGuiText("..", GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextPos(parentText, 8, 0);
+    setGuiTextAlignment(parentText, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
+    setGuiButtonBg(parentButton, btnBg, btnBgHover);
+    setGuiButtonLabel(parentButton, parentText);
+    setGuiButtonPos(parentButton, 0, 0);
+    setGuiButtonState(parentButton, GUI_BUTTON_STATE_SELECTED);
+
+    GuiButton folderButtons[FOLDER_PICKER_DIRS_PER_PAGE];
+    GuiText folderTexts[FOLDER_PICKER_DIRS_PER_PAGE];
+    for (size_t i = 0; i < FOLDER_PICKER_DIRS_PER_PAGE; i++) {
+        folderButtons[i] = newGuiButton(SCREEN_WIDTH, 27);
+        folderTexts[i] = newGuiText("", GUI_TEXT_SIZE_SMALL, 0);
+        setGuiTextPos(folderTexts[i], 8, 0);
+        setGuiTextAlignment(folderTexts[i], GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
+        setGuiTextMaxWidth(folderTexts[i], 240);
+        setGuiButtonBg(folderButtons[i], btnBg, btnBgHover);
+        setGuiButtonLabel(folderButtons[i], folderTexts[i]);
+        setGuiButtonPos(folderButtons[i], 0, 28 + i * 27);
+    }
+
+    GuiButton previousButton = newGuiButton(64, 24);
+    GuiText previousText = newGuiText(tr("Previous"), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextAlignment(previousText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    setGuiButtonBg(previousButton, btnBg, btnBgHover);
+    setGuiButtonLabel(previousButton, previousText);
+    setGuiButtonPos(previousButton, 4, 110);
+
+    GuiButton nextButton = newGuiButton(64, 24);
+    GuiText nextText = newGuiText(tr("Next"), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextAlignment(nextText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    setGuiButtonBg(nextButton, btnBg, btnBgHover);
+    setGuiButtonLabel(nextButton, nextText);
+    setGuiButtonPos(nextButton, 188, 110);
+
+    GuiText pageText = newGuiText("", GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextPos(pageText, 128, 122);
+    setGuiTextAlignment(pageText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+
+    GuiButton chooseButton = newGuiButton(116, 28);
+    GuiText chooseText = newGuiText(tr("Ok"), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextAlignment(chooseText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    setGuiButtonBg(chooseButton, btnBg, btnBgHover);
+    setGuiButtonLabel(chooseButton, chooseText);
+    setGuiButtonPos(chooseButton, 8, 148);
+
+    GuiButton cancelButton = newGuiButton(116, 28);
+    GuiText cancelText = newGuiText(tr("Cancel"), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextAlignment(cancelText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+    setGuiButtonBg(cancelButton, btnBg, btnBgHover);
+    setGuiButtonLabel(cancelButton, cancelText);
+    setGuiButtonPos(cancelButton, 132, 148);
+
+    addToGuiScreen(topScreen, topBg, GUI_ELEMENT_TYPE_BOX);
+    addToGuiScreen(topScreen, title, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(topScreen, pathText, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, bottomBg, GUI_ELEMENT_TYPE_BOX);
+    addToGuiScreen(bottomScreen, parentButton, GUI_ELEMENT_TYPE_BUTTON);
+    for (size_t i = 0; i < FOLDER_PICKER_DIRS_PER_PAGE; i++)
+        addToGuiScreen(bottomScreen, folderButtons[i], GUI_ELEMENT_TYPE_BUTTON);
+    addToGuiScreen(bottomScreen, previousButton, GUI_ELEMENT_TYPE_BUTTON);
+    addToGuiScreen(bottomScreen, nextButton, GUI_ELEMENT_TYPE_BUTTON);
+    addToGuiScreen(bottomScreen, pageText, GUI_ELEMENT_TYPE_TEXT);
+    addToGuiScreen(bottomScreen, chooseButton, GUI_ELEMENT_TYPE_BUTTON);
+    addToGuiScreen(bottomScreen, cancelButton, GUI_ELEMENT_TYPE_BUTTON);
+
+    GuiScreen previousTopScreen = getActiveTopScreen();
+    GuiScreen previousBottomScreen = getActiveBottomScreen();
+    setActiveScreens(topScreen, bottomScreen);
+
+    size_t page = 0;
+    size_t pageCount = 0;
+    size_t totalCount = 0;
+    char folderNames[FOLDER_PICKER_DIRS_PER_PAGE][FOLDER_PICKER_NAME_SIZE];
+    bool running = true;
+    bool selected = false;
+
+    while (running) {
+        totalCount = readFolderPage(currentPath, page, folderNames, &pageCount);
+        setGuiTextText(pathText, currentPath);
+
+        char pageLabel[24];
+        size_t totalPages = (totalCount + FOLDER_PICKER_DIRS_PER_PAGE - 1) / FOLDER_PICKER_DIRS_PER_PAGE;
+        snprintf(pageLabel, sizeof(pageLabel), "%s %u/%u", tr("Page"), (unsigned)(page + 1), (unsigned)(totalPages ? totalPages : 1));
+        setGuiTextText(pageText, pageLabel);
+
+        for (size_t i = 0; i < FOLDER_PICKER_DIRS_PER_PAGE; i++)
+            setGuiTextText(folderTexts[i], i < pageCount ? folderNames[i] : "");
+
+        guiLoop();
+        drawScreens();
+
+        if (getGuiButtonState(parentButton) == GUI_BUTTON_STATE_CLICKED) {
+            folderPickerParent(currentPath);
+            page = 0;
+            resetGuiButtonState(parentButton);
+        } else {
+            bool folderChanged = false;
+            for (size_t i = 0; i < pageCount; i++) {
+                if (getGuiButtonState(folderButtons[i]) != GUI_BUTTON_STATE_CLICKED)
+                    continue;
+
+                char childPath[PATH_MAX];
+                size_t pathLength = strlen(currentPath);
+                int written = snprintf(childPath, sizeof(childPath), "%s%s%s", currentPath,
+                    (pathLength > 0 && currentPath[pathLength - 1] == '/') ? "" : "/", folderNames[i]);
+                if (written >= 0 && (size_t)written < sizeof(childPath))
+                    strcpy(currentPath, childPath);
+                page = 0;
+                resetGuiButtonState(folderButtons[i]);
+                folderChanged = true;
+                break;
+            }
+
+            if (!folderChanged && getGuiButtonState(previousButton) == GUI_BUTTON_STATE_CLICKED) {
+                if (page > 0)
+                    page--;
+                resetGuiButtonState(previousButton);
+            } else if (!folderChanged && getGuiButtonState(nextButton) == GUI_BUTTON_STATE_CLICKED) {
+                if ((page + 1) * FOLDER_PICKER_DIRS_PER_PAGE < totalCount)
+                    page++;
+                resetGuiButtonState(nextButton);
+            } else if (!folderChanged && getGuiButtonState(chooseButton) == GUI_BUTTON_STATE_CLICKED) {
+                if (strlen(currentPath) < selectedPathSize) {
+                    strcpy(selectedPath, currentPath);
+                    selected = true;
+                }
+                running = false;
+                resetGuiButtonState(chooseButton);
+            } else if (!folderChanged && getGuiButtonState(cancelButton) == GUI_BUTTON_STATE_CLICKED) {
+                running = false;
+                resetGuiButtonState(cancelButton);
+            }
+        }
+    }
+
+    setActiveScreens(previousTopScreen, previousBottomScreen);
+    freeGuiScreen(topScreen);
+    freeGuiScreen(bottomScreen);
+    freeGuiBox(topBg);
+    freeGuiBox(bottomBg);
+    freeGuiBox(btnBg);
+    freeGuiBox(btnBgHover);
+    freeGuiText(title);
+    freeGuiText(pathText);
+    freeGuiButton(parentButton);
+    freeGuiText(parentText);
+    for (size_t i = 0; i < FOLDER_PICKER_DIRS_PER_PAGE; i++) {
+        freeGuiButton(folderButtons[i]);
+        freeGuiText(folderTexts[i]);
+    }
+    freeGuiButton(previousButton);
+    freeGuiText(previousText);
+    freeGuiButton(nextButton);
+    freeGuiText(nextText);
+    freeGuiText(pageText);
+    freeGuiButton(chooseButton);
+    freeGuiText(chooseText);
+    freeGuiButton(cancelButton);
+    freeGuiText(cancelText);
+
+    return selected;
+}
+
 // Settings menu
 // Displays the app settings
 static void settingsMenu(void)
@@ -1594,7 +2046,7 @@ static void settingsMenu(void)
     setGuiImagePos(brickColor1, 96, 72);
     setGuiImagePos(brickColor2, 96, 72);
 
-    GuiText menuTitle = newGuiText(tr("Settings"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText menuTitle = newGuiText(tr("Settings"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
@@ -1610,24 +2062,24 @@ static void settingsMenu(void)
     char colorSchemeStr[4];
     snprintf(colorSchemeStr, sizeof(colorSchemeStr), "%d", settings.colorScheme + 1);
 
-    settingBtnTxt[0] = newGuiText(tr("Downloads directory"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
-    settingValueTxt[0] = newGuiText(settings.dlPath, GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+    settingBtnTxt[0] = newGuiText(tr("Downloads directory"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[0] = newGuiText(settings.dlPath, GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[0], 122);
 
-    settingBtnTxt[1] = newGuiText(tr("Use platform-specific directories (E.g. nds, gba)"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
-    settingValueTxt[1] = newGuiText(tr(dlUseDirsStr(settings.dlUseDirs)), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+    settingBtnTxt[1] = newGuiText(tr("Use platform-specific directories (E.g. nds, gba)"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[1] = newGuiText(tr(dlUseDirsStr(settings.dlUseDirs)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[1], 168);
 
-    settingBtnTxt[2] = newGuiText(tr("Color scheme"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
-    settingValueTxt[2] = newGuiText(tr(colorSchemeStr(settings.colorScheme)), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+    settingBtnTxt[2] = newGuiText(tr("Color scheme"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[2] = newGuiText(tr(colorSchemeStr(settings.colorScheme)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[2], 168);
 
-    settingBtnTxt[3] = newGuiText(tr("Check for updates on start"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
-    settingValueTxt[3] = newGuiText(tr(checkUpdateOnStartStr(settings.checkUpdateOnStart)), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+    settingBtnTxt[3] = newGuiText(tr("Check for updates on start"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[3] = newGuiText(tr(checkUpdateOnStartStr(settings.checkUpdateOnStart)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[3], 168);
 
-    settingBtnTxt[4] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
-    settingValueTxt[4] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_3));
+    settingBtnTxt[4] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[4] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[4], 168);
 
     addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
@@ -1667,29 +2119,9 @@ static void settingsMenu(void)
 
         if (getGuiButtonState(settingBtn[0]) == GUI_BUTTON_STATE_CLICKED) {
             char tempDlPath[PATH_MAX];
-            strcpy(tempDlPath, settings.dlPath);
-
-            if (keyboardEdit(tempDlPath, sizeof(tempDlPath))) {
-                bool save = true;
-
-                if (tempDlPath[0] == '\0') {
-                    windowPrompt(tr("Error"), tr("Path can not be empty"), tr("Ok"), NULL);
-                    save = false;
-                } else if (!dirExists(tempDlPath)) {
-                    if (windowPrompt(tr("Error"), tr("Directory does not exist. Do you want to create it?"), tr("Ok"), tr("Cancel"))) {
-                        if (!createDirR(tempDlPath)) {
-                            windowPrompt(tr("Error"), tr("Failed to create directory"), tr("Ok"), NULL);
-                            save = false;
-                        }
-                    } else {
-                        save = false;
-                    }
-                }
-
-                if (save) {
-                    strcpy(settings.dlPath, tempDlPath);
-                    saveSettings();
-                }
+            if (chooseDownloadDirectory(tempDlPath, sizeof(tempDlPath))) {
+                strcpy(settings.dlPath, tempDlPath);
+                saveSettings();
             }
 
             setGuiTextText(settingValueTxt[0], settings.dlPath);
@@ -1774,30 +2206,30 @@ static void infoMenu(void)
     setGuiImagePos(brickColor1, 96, 72);
     setGuiImagePos(brickColor2, 96, 72);
 
-    GuiText menuTitle = newGuiText(tr("Info"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText menuTitle = newGuiText(tr("Info"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText appNameTxt = newGuiText(APP_NAME, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT));
+    GuiText appNameTxt = newGuiText(APP_NAME, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(appNameTxt, 128, 22);
     setGuiTextAlignment(appNameTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
     char appVersionText[16];
     snprintf(appVersionText, sizeof(appVersionText), "%s %s", tr("Version"), APP_VERSION);
 
-    GuiText appVersionTxt = newGuiText(appVersionText, GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText appVersionTxt = newGuiText(appVersionText, GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(appVersionTxt, 128, 43);
     setGuiTextAlignment(appVersionTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText subtitle1Txt = newGuiText("by Rinzler", GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText subtitle1Txt = newGuiText("by Rinzler", GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(subtitle1Txt, 128, 72);
     setGuiTextAlignment(subtitle1Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText subtitle2Txt = newGuiText("https://github.com/NDS-Shop-Homebrew/NDS-Shop", GUI_TEXT_SIZE_SMALL, col(COLOR_TEXT_2));
+    GuiText subtitle2Txt = newGuiText("https://github.com/NDS-Shop-Homebrew/NDS-Shop", GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(subtitle2Txt, 128, 87);
     setGuiTextAlignment(subtitle2Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText checkUpdateBtnTxt = newGuiText(tr("Check for updates"), GUI_TEXT_SIZE_MEDIUM, col(COLOR_TEXT_2));
+    GuiText checkUpdateBtnTxt = newGuiText(tr("Check for updates"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextAlignment(checkUpdateBtnTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
     size_t checkUpdateBtnWidth = getGuiTextWidth(checkUpdateBtnTxt) + 20;
@@ -1864,11 +2296,6 @@ void menuBegin(MenuEnum startingMenu)
     initNavbar();
 
     switchMenu(startingMenu);
-
-    loadLastOpenedDb();
-
-    if (settings.checkUpdateOnStart)
-        handleUpdateCheck();
 
     while (menu != MENU_EXIT) {
         switch (menu) {

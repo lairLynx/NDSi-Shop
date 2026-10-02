@@ -58,6 +58,9 @@ msgstr "Prompt"
 msgid "Download failed"
 msgstr "Download mislukt"
 
+msgid "Wi-Fi connection unavailable"
+msgstr "Wifi-verbinding niet beschikbaar"
+
 msgid "could not create download directory"
 msgstr "kon geen downloadmap aanmaken"
 
@@ -129,6 +132,9 @@ msgstr "Geen databases gevonden"
 
 msgid "Loading database..."
 msgstr "Database aan het laden..."
+
+msgid "Loading box art..."
+msgstr "Boxafbeelding laden..."
 
 msgid "Settings"
 msgstr "Instellingen"

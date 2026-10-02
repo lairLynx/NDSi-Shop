@@ -151,6 +151,11 @@ void setActiveScreens(GuiScreen topScreen, GuiScreen bottomScreen)
     activeBottomScreen = bottomScreen;
 }
 
+void setNextGuiScreenDrawTarget(GuiScreenLcd lcd)
+{
+    targetLcd = lcd;
+}
+
 GuiScreen getActiveTopScreen(void)
 {
     return activeTopScreen;

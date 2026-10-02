@@ -120,6 +120,43 @@ static bool pngFileToBitmap(const char* filePath, u8** bitmap, size_t* width, si
     return true;
 }
 
+static void resizeBitmap(u8** bitmap, size_t* width, size_t* height, size_t maxWidth, size_t maxHeight)
+{
+    double scale = 1.0;
+    if (maxWidth && *width > maxWidth)
+        scale = (double)maxWidth / *width;
+    if (maxHeight && *height * scale > maxHeight)
+        scale = (double)maxHeight / *height;
+
+    if (scale >= 1.0)
+        return;
+
+    size_t resizedWidth = *width * scale;
+    size_t resizedHeight = *height * scale;
+    if (resizedWidth == 0)
+        resizedWidth = 1;
+    if (resizedHeight == 0)
+        resizedHeight = 1;
+
+    u16* resizedBitmap = malloc(resizedWidth * resizedHeight * sizeof(u16));
+    if (!resizedBitmap)
+        return;
+
+    const u16* sourceBitmap = (const u16*)*bitmap;
+    for (size_t y = 0; y < resizedHeight; y++) {
+        size_t sourceY = y * *height / resizedHeight;
+        for (size_t x = 0; x < resizedWidth; x++) {
+            size_t sourceX = x * *width / resizedWidth;
+            resizedBitmap[y * resizedWidth + x] = sourceBitmap[sourceY * *width + sourceX];
+        }
+    }
+
+    free(*bitmap);
+    *bitmap = (u8*)resizedBitmap;
+    *width = resizedWidth;
+    *height = resizedHeight;
+}
+
 // Calculate closest GL_TEXTURE_SIZE_ENUM
 #define calculateGlTextureSizeEnum(x) \
     ((x) <= 8 ? TEXTURE_SIZE_8 \
@@ -216,6 +253,8 @@ GuiImage newGuiImagePNG(const char* filePath, size_t resizeWidth, size_t resizeH
 
     if (!pngFileToBitmap(filePath, (u8**)&bitmap, &width, &height, &textureType))
         return NULL;
+
+    resizeBitmap((u8**)&bitmap, &width, &height, resizeWidth, resizeHeight);
 
     GuiImage gi = newGuiImage(bitmap, NULL, width, height, width, height, resizeWidth, resizeHeight, textureType);
     free(bitmap);

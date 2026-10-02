@@ -7,6 +7,7 @@
 #include "gfx/fontMediumUVCoords.h"
 #include "gfx/fontSmallUVCoords.h"
 #include <gl2d.h>
+#include "style.h"
 #include <stdio.h>
 
 static glImage fontBig[FONTBIG_NUM_IMAGES];
@@ -81,7 +82,8 @@ GuiText newGuiText(const char* text, GuiTextSize size, u16 color)
     gt->posX = 0;
     gt->posY = 0;
     gt->text = NULL;
-    gt->color = color;
+    // If caller passed 0, use themed text color
+    gt->color = color ? color : guiGetColor(COLOR_TEXT);
     gt->hAlign = GUI_TEXT_H_ALIGN_LEFT;
     gt->vAlign = GUI_TEXT_V_ALIGN_TOP;
     gt->maxWidth = 0;

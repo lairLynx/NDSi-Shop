@@ -3,6 +3,7 @@
 #include "backspaceKey_png.h"
 #include "shiftKey_png.h"
 #include <stdlib.h>
+#include "style.h"
 
 struct GuiKeyboard {
     size_t posX;
@@ -70,14 +71,18 @@ GuiKeyboard newGuiKeyboard(u16 textColor, u16 hoverColor)
     gk->keys = malloc(sizeof(struct GuiKeyboardKey) * KEYS_COUNT);
     gk->shiftPressed = false;
 
+    // Resolve themed defaults when caller passes 0
+    u16 textColorUsed = textColor ? textColor : guiGetColor(COLOR_TEXT_2);
+    u16 hoverColorUsed = hoverColor ? hoverColor : guiGetColor(COLOR_PRIMARY);
+
     // All keys
     for (size_t i = 0; i < KEYS_COUNT; i++) {
         gk->keys[i].bg = newGuiBox(23, 23, 0);
 
         gk->keys[i].bgHover = newGuiBox(23, 23, 0);
-        setGuiBoxBorder(gk->keys[i].bgHover, 1, hoverColor);
+        setGuiBoxBorder(gk->keys[i].bgHover, 1, hoverColorUsed);
 
-        gk->keys[i].label = newGuiText("", GUI_TEXT_SIZE_MEDIUM, textColor);
+        gk->keys[i].label = newGuiText("", GUI_TEXT_SIZE_MEDIUM, textColorUsed);
         setGuiTextAlignment(gk->keys[i].label, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
         gk->keys[i].btn = newGuiButton(23, 23);
@@ -87,18 +92,18 @@ GuiKeyboard newGuiKeyboard(u16 textColor, u16 hoverColor)
 
     // Space
     setGuiBoxWidth(gk->keys[41].bg, 115);
-    setGuiBoxBorder(gk->keys[41].bg, 1, textColor);
+    setGuiBoxBorder(gk->keys[41].bg, 1, textColorUsed);
     setGuiBoxWidth(gk->keys[41].bgHover, 115);
     setGuiButtonWidth(gk->keys[41].btn, 115);
 
     // Backspace
     gk->keys[10].icon = newGuiImage(backspaceKey_pngBitmap, backspaceKey_pngPal, 15, 11, 16, 16, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(gk->keys[10].icon, textColor);
+    setGuiImageColorTint(gk->keys[10].icon, textColorUsed);
     setGuiButtonIcon(gk->keys[10].btn, gk->keys[10].icon, gk->keys[10].icon);
 
     // Shift
     gk->keys[31].icon = newGuiImage(shiftKey_pngBitmap, shiftKey_pngPal, 11, 13, 16, 16, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(gk->keys[31].icon, textColor);
+    setGuiImageColorTint(gk->keys[31].icon, textColorUsed);
     setGuiButtonIcon(gk->keys[31].btn, gk->keys[31].icon, gk->keys[31].icon);
 
     setKeysPos(gk);

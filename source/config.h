@@ -1,10 +1,10 @@
 #pragma once
 
-#define APP_NAME "NDS-Shop"
+#define APP_NAME "DSi-Shop"
 #ifndef APP_VERSION
 #define APP_VERSION "1.0.0"
 #endif
-#define APPDATA_DIR "/" APP_NAME
+#define APPDATA_DIR "/NDS-Shop"
 #define CACHE_DIR APPDATA_DIR "/cache" 
 
 #define UPDATE_URL_APP "https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi/releases/latest/download/NDS-Shop.nds"

@@ -38,7 +38,12 @@ void setGuiBoxWidth(GuiBox gb, size_t width)
 
 void setGuiBoxHeight(GuiBox gb, size_t height)
 {
-    gb->width = height;
+    gb->height = height;
+}
+
+size_t getGuiBoxBorderSize(GuiBox gb)
+{
+    return gb->borderSize;
 }
 
 void setGuiBoxPos(GuiBox gb, size_t posX, size_t posY)

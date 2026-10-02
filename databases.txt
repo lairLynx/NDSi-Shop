@@ -1,1 +1,2 @@
 NDS-Shop	https://db-nds-shop.fr/db.txt
+Universal-DB	https://gist.githubusercontent.com/cavv-dev/3c0cbc1b63ac8ca0c1d9f549403afbf1/raw/

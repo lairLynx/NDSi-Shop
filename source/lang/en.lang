@@ -103,6 +103,9 @@ msgstr ""
 msgid "download failed"
 msgstr ""
 
+msgid "Wi-Fi connection unavailable"
+msgstr ""
+
 msgid "file not found"
 msgstr ""
 
@@ -128,6 +131,9 @@ msgid "No databases found"
 msgstr ""
 
 msgid "Loading database..."
+msgstr ""
+
+msgid "Loading box art..."
 msgstr ""
 
 msgid "Settings"
