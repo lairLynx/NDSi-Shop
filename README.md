@@ -92,10 +92,6 @@ python build.py release
 </tr>
 </table>
 
-## 3DS Version
-
-The 3DS port is maintained in a separate repository: [NDS-Shop](https://github.com/NDS-Shop-Homebrew/NDS-Shop)
-
 ## Credits
 
 This project is based on and builds on the original work from [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi), created and maintained mainly by [TheRinzler65](https://github.com/TheRinzler65).
