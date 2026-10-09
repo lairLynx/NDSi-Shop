@@ -7,7 +7,6 @@ typedef enum {
     SETTING_DLPATH,
     SETTING_DLUSEDIRS,
     SETTING_COLORSCHEME,
-    SETTING_CHECKUPDATEONSTART,
     SETTING_LANG,
     SETTINGS_COUNT
 } SettingEnum;
@@ -17,7 +16,6 @@ struct Settings {
     bool dlUseDirs;
     ColorSchemeEnum colorScheme;
     LanguageEnum lang;
-    bool checkUpdateOnStart;
 };
 
 extern struct Settings settings;
@@ -33,11 +31,6 @@ extern struct Settings settings;
     : (x) == LANG_NL ? "Dutch" \
     : (x) == LANG_FR ? "French" \
 	: "")
-
-#define checkUpdateOnStartStr(x) \
-    ((x) == false ? "No" \
-    : (x) == true ? "Yes" \
-    : "")
 
 #define colorSchemeStr(x) \
     ((x) == COLOR_SCHEME_1 ? "DSi-Shop" \

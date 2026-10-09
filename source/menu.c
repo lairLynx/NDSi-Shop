@@ -917,14 +917,14 @@ static int compareVersions(const char* a, const char* b)
 }
 
 // Handles the update check and download
-static void handleUpdateCheck(bool manual)
+static void handleUpdateCheck(void)
 {
     showMessage(tr("Checking for updates..."));
 
     char newVersion[16];
     DownloadStatus dlStatus = DOWNLOAD_ERR_PERFORM_FAILED;
 
-    // The connection may still be settling right after startup, so try a few times
+    // Try twice in case the first request fails on a slow connection
     // (no retry when WiFi is down: that already waited for the connection)
     for (int attempt = 0; attempt < 2 && dlStatus != DOWNLOAD_SUCCESS; attempt++) {
         dlStatus = downloadToString(newVersion, sizeof(newVersion), UPDATE_URL_VERSION);
@@ -933,8 +933,7 @@ static void handleUpdateCheck(bool manual)
     }
 
     if (dlStatus != DOWNLOAD_SUCCESS) {
-        if (manual)
-            windowPrompt(tr("Error"), tr("Could not check for updates"), tr("Ok"), NULL);
+        windowPrompt(tr("Error"), tr("Could not check for updates"), tr("Ok"), NULL);
         return;
     }
 
@@ -2120,13 +2119,9 @@ static void settingsMenu(void)
     settingValueTxt[2] = newGuiText(tr(colorSchemeStr(settings.colorScheme)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[2], 168);
 
-    settingBtnTxt[3] = newGuiText(tr("Check for updates on start"), GUI_TEXT_SIZE_SMALL, 0);
-    settingValueTxt[3] = newGuiText(tr(checkUpdateOnStartStr(settings.checkUpdateOnStart)), GUI_TEXT_SIZE_SMALL, 0);
+    settingBtnTxt[3] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[3] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[3], 168);
-
-    settingBtnTxt[4] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, 0);
-    settingValueTxt[4] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
-    setGuiTextMaxWidth(settingBtnTxt[4], 168);
 
     addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
@@ -2194,25 +2189,18 @@ setGuiTextText(settingValueTxt[2], tr(colorSchemeStr(settings.colorScheme)));
             saveSettings();
             resetGuiButtonState(settingBtn[2]);
         } else if (getGuiButtonState(settingBtn[3]) == GUI_BUTTON_STATE_CLICKED) {
-            settings.checkUpdateOnStart = settings.checkUpdateOnStart ? false : true;
-
-            setGuiTextText(settingValueTxt[3], tr(checkUpdateOnStartStr(settings.checkUpdateOnStart)));
-
-            saveSettings();
-            resetGuiButtonState(settingBtn[3]);
-        } else if (getGuiButtonState(settingBtn[4]) == GUI_BUTTON_STATE_CLICKED) {
             settings.lang++;
 
             if (settings.lang == LANGS_COUNT)
                 settings.lang = 0;
 
-            setGuiTextText(settingValueTxt[4], tr(langStr(settings.lang)));
+            setGuiTextText(settingValueTxt[3], tr(langStr(settings.lang)));
 
             loadLanguage(settings.lang);
             switchMenu(MENU_SETTINGS);
 
             saveSettings();
-            resetGuiButtonState(settingBtn[4]);
+            resetGuiButtonState(settingBtn[3]);
         }
 
         navbarSwitchMenu();
@@ -2309,7 +2297,7 @@ static void infoMenu(void)
         drawScreens();
 
         if (getGuiButtonState(checkUpdateBtn) == GUI_BUTTON_STATE_CLICKED) {
-            handleUpdateCheck(true);
+            handleUpdateCheck();
             resetGuiButtonState(checkUpdateBtn);
         }
 
@@ -2342,9 +2330,6 @@ void menuBegin(MenuEnum startingMenu)
     initNavbar();
 
     switchMenu(startingMenu);
-
-    if (settings.checkUpdateOnStart)
-        handleUpdateCheck(false);
 
     while (menu != MENU_EXIT) {
         switch (menu) {

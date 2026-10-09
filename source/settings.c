@@ -7,6 +7,7 @@
 #include <string.h>
 
 #define SETTINGS_FILENAME "settings.cfg"
+#define LEGACY_APPDATA_DIR "/NDS-Shop"
 
 struct Settings settings;
 
@@ -22,7 +23,6 @@ bool defaultSettings(void)
 
     settings.colorScheme = COLOR_SCHEME_1;
     settings.lang = LANG_EN;
-    settings.checkUpdateOnStart = true;
 
     return true;
 }
@@ -30,6 +30,8 @@ bool defaultSettings(void)
 bool loadSettings(void)
 {
     FILE* fp = fopen(APPDATA_DIR "/" SETTINGS_FILENAME, "r");
+    if (!fp)
+        fp = fopen(LEGACY_APPDATA_DIR "/" SETTINGS_FILENAME, "r"); // Settings from before the data directory rename
     if (!fp)
         return false;
 
@@ -39,23 +41,20 @@ bool loadSettings(void)
     while (fgets(line, sizeof(line), fp)) {
         line[strcspn(line, "\r\n")] = 0;
 
-        if (sscanf(line, "%[^=]=%s", name, value) != 2) {
-            fclose(fp);
-            return false;
-        }
+        // Skip malformed lines instead of discarding every setting
+        if (sscanf(line, "%1023[^=]=%1023[^\n]", name, value) != 2)
+            continue;
 
         int valueInt = atoi(value);
 
         if (strcmp(name, "dlPath") == 0 && dirExists(value))
-            snprintf(settings.dlPath, sizeof(settings.dlPath), value);
+            snprintf(settings.dlPath, sizeof(settings.dlPath), "%s", value);
         else if (strcmp(name, "useDirs") == 0 && (valueInt == 0 || valueInt == 1))
             settings.dlUseDirs = valueInt;
         else if (strcmp(name, "colorScheme") == 0 && (valueInt > 0 && valueInt < COLOR_SCHEMES_COUNT + 1))
             settings.colorScheme = valueInt - 1;
         else if (strcmp(name, "lang") == 0 && (valueInt >= 0 && valueInt < LANGS_COUNT))
             settings.lang = valueInt;
-        else if (strcmp(name, "checkUpdateOnStart") == 0 && (valueInt == 0 || valueInt == 1))
-            settings.checkUpdateOnStart = valueInt;
     }
 
     fclose(fp);
@@ -73,7 +72,6 @@ bool saveSettings(void)
     fprintf(fp, "useDirs=%d\n", settings.dlUseDirs);
     fprintf(fp, "colorScheme=%d\n", settings.colorScheme + 1);
     fprintf(fp, "lang=%d\n", settings.lang);
-    fprintf(fp, "checkUpdateOnStart=%d\n", settings.checkUpdateOnStart);
 
     fclose(fp);
     return true;
