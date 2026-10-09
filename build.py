@@ -7,6 +7,17 @@ import subprocess
 from architectds.architectds import *
 
 def get_git_version():
+    # version.txt in the repo root is the source of truth for the app version
+    try:
+        with open('version.txt') as f:
+            version = f.read().strip()
+        if version.startswith('v'):
+            version = version[1:]
+        if version:
+            return version
+    except OSError:
+        pass
+
     try:
         version = subprocess.check_output(
             ['git', 'describe', '--abbrev=0', '--tags'],

@@ -892,6 +892,30 @@ static void downloadUpdate(void)
         switchMenu(MENU_EXIT);
 }
 
+// Compares dotted version strings (e.g. "1.0.10" > "1.0.6"); returns <0, 0 or >0
+static int compareVersions(const char* a, const char* b)
+{
+    if (*a == 'v')
+        a++;
+    if (*b == 'v')
+        b++;
+
+    while (*a || *b) {
+        long na = strtol(a, (char**)&a, 10);
+        long nb = strtol(b, (char**)&b, 10);
+        if (na != nb)
+            return na < nb ? -1 : 1;
+        if (*a != '.' && *b != '.')
+            break;
+        if (*a == '.')
+            a++;
+        if (*b == '.')
+            b++;
+    }
+
+    return 0;
+}
+
 // Handles the update check and download
 static void handleUpdateCheck(bool manual)
 {
@@ -901,8 +925,12 @@ static void handleUpdateCheck(bool manual)
     DownloadStatus dlStatus = DOWNLOAD_ERR_PERFORM_FAILED;
 
     // The connection may still be settling right after startup, so try a few times
-    for (int attempt = 0; attempt < 3 && dlStatus != DOWNLOAD_SUCCESS; attempt++)
+    // (no retry when WiFi is down: that already waited for the connection)
+    for (int attempt = 0; attempt < 2 && dlStatus != DOWNLOAD_SUCCESS; attempt++) {
         dlStatus = downloadToString(newVersion, sizeof(newVersion), UPDATE_URL_VERSION);
+        if (dlStatus == DOWNLOAD_ERR_WIFI_NOT_CONNECTED)
+            break;
+    }
 
     if (dlStatus != DOWNLOAD_SUCCESS) {
         if (manual)
@@ -912,7 +940,8 @@ static void handleUpdateCheck(bool manual)
 
     newVersion[strcspn(newVersion, "\r\n")] = '\0';
 
-    if (strcmp(APP_VERSION, newVersion) == 0)
+    // Only offer the update when the published version is newer than this build
+    if (compareVersions(newVersion, APP_VERSION) <= 0)
         return;
 
     char tempMessage[128];

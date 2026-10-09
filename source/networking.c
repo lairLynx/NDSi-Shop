@@ -24,7 +24,7 @@ static bool waitForWifiConnection(void)
     if (status == ASSOCSTATUS_DISCONNECTED || status == ASSOCSTATUS_CANNOTCONNECT)
         Wifi_AutoConnect();
 
-    for (u32 frame = 0; frame < 1800; frame++) {
+    for (u32 frame = 0; frame < 900; frame++) {
         status = Wifi_AssocStatus();
         if (status == ASSOCSTATUS_ASSOCIATED)
             return true;
@@ -253,6 +253,7 @@ DownloadStatus downloadToString(char* result, size_t bufferSize, const char* url
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, memoryWriteCallback);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &writeData);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 7L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L); // Never hang on a stalled request
 
     CURLcode res = curl_easy_perform(curl);
 
