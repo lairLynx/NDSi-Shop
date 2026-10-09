@@ -6,6 +6,7 @@
 #include "colors.h"
 #include "config.h"
 #include "gettext.h"
+#include "filesystem.h"
 #include "gui/box.h"
 #include "gui/button.h"
 #include "gui/image.h"
@@ -857,11 +858,25 @@ static void downloadEntry(Entry e)
 // Handles the download of the update file
 static void downloadUpdate(void)
 {
-    char workDir[PATH_MAX];
-    getcwd(workDir, sizeof(workDir));
+    // Replace the ROM that is actually running. The working directory is the
+    // SD root, so using it would drop the update next to nothing that gets launched.
+    char execPath[PATH_MAX];
+    if (getRomPath()[0] != '\0') {
+        snprintf(execPath, sizeof(execPath), "%s", getRomPath());
+    } else {
+        char workDir[PATH_MAX];
+        getcwd(workDir, sizeof(workDir));
+        joinPath(execPath, getRomDir()[0] != '\0' ? getRomDir() : workDir, UPDATE_FILENAME);
+    }
 
     char downloadFilePath[PATH_MAX];
-    joinPath(downloadFilePath, workDir, UPDATE_TEMP_FILENAME);
+    snprintf(downloadFilePath, sizeof(downloadFilePath), "%s", execPath);
+    char* lastSlash = strrchr(downloadFilePath, '/');
+    if (lastSlash)
+        *(lastSlash + 1) = '\0';
+    else
+        downloadFilePath[0] = '\0';
+    strncat(downloadFilePath, UPDATE_TEMP_FILENAME, sizeof(downloadFilePath) - strlen(downloadFilePath) - 1);
 
     DownloadStatus dlStatus = downloadGui(downloadFilePath, UPDATE_URL_APP, UPDATE_FILENAME);
 
@@ -870,9 +885,6 @@ static void downloadUpdate(void)
             windowPrompt(tr("Error"), tr("Could not download update"), tr("Ok"), NULL);
         return;
     }
-
-    char execPath[PATH_MAX];
-    joinPath(execPath, workDir, UPDATE_FILENAME);
 
     renamePath(downloadFilePath, execPath);
 

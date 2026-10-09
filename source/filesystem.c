@@ -6,12 +6,16 @@
 #include <unistd.h>
 
 char romDir[PATH_MAX];
+static char romPath[PATH_MAX];
 
 void loadRomDir(void)
 {
     // Check if argv has been provided by the loader
     if (__system_argv->argvMagic == ARGV_MAGIC && __system_argv->argc >= 1) {
         const char* argvPath = __system_argv->argv[0];
+
+        if (strlen(argvPath) < sizeof(romPath) && strrchr(argvPath, '/') != NULL)
+            strcpy(romPath, argvPath);
 
         if (strncmp(argvPath, "fat:", 4) == 0) {
             // If argv starts by "fat:", check if fat:/ is accessible
@@ -79,6 +83,11 @@ bool initFat(void)
         chdir("/");
 
     return true;
+}
+
+char* getRomPath(void)
+{
+    return romPath;
 }
 
 char* getRomDir(void)
