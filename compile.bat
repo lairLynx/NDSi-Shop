@@ -1,5 +1,5 @@
 @echo off
-cd /d "%~dp0DSi"
+cd /d "%~dp0"
 set "MSYS2_PATH_TYPE=inherit"
 set "MSYSTEM=UCRT64"
 set "BLOCKSDS=/opt/wonderful/thirdparty/blocksds/core"

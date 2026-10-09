@@ -6,5 +6,5 @@ set "BLOCKSDS=/opt/wonderful/thirdparty/blocksds/core"
 set "BLOCKSDSEXT=/opt/wonderful/thirdparty/blocksds/external"
 set "WONDERFUL_TOOLCHAIN=/opt/wonderful"
 set "PATH=C:\msys64\opt\wonderful\toolchain\gcc-arm-none-eabi\bin;C:\msys64\usr\bin;C:\msys64\opt\wonderful\bin;%PATH%"
-C:\msys64\usr\bin\sh.exe -c "python build.py --clean && rm -f NDS-Shop.nds"
+C:\msys64\usr\bin\sh.exe -c "python build.py --clean && rm -f DSi-Shop.nds"
 pause

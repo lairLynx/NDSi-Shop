@@ -2223,7 +2223,7 @@ static void infoMenu(void)
     setGuiTextPos(subtitle1Txt, 128, 72);
     setGuiTextAlignment(subtitle1Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText subtitle2Txt = newGuiText("https://github.com/NDS-Shop-Homebrew/NDS-Shop", GUI_TEXT_SIZE_SMALL, 0);
+    GuiText subtitle2Txt = newGuiText("https://github.com/lairLynx/NDSi-Shop", GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(subtitle2Txt, 128, 87);
     setGuiTextAlignment(subtitle2Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 

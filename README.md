@@ -1,10 +1,10 @@
-# NDS-Shop (DSi)
+# DSi-Shop (NDSi-Shop)
 
-> An alternative Nintendo DS shop for the Nintendo DS / DSi family of systems.
+> An alternative shop for the Nintendo DS / DSi family of systems.
 
 ## Features
 
-- Browse and search a curated database of NDS games
+- Browse and search databases of NDS games (with boxart)
 - Download `.nds` directly to SD card
 - ZIP file extraction
 - Database loading via URL or file
@@ -17,8 +17,8 @@
 
 ### DSi
 
-- Download `NDS-Shop.nds` from the [latest release](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi/releases/latest).
-- Place it anywhere on your SD card.
+- Download `DSi-Shop.nds` from the [latest release](https://github.com/lairLynx/NDSi-Shop/releases/latest).
+- Place it anywhere on your SD card. App data (settings, databases, cache) is stored in `/NDSi-Shop` on the SD card.
 - Launch via TWiLight Menu++ or Unlaunch.
 
 ## Building
