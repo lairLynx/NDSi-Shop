@@ -24,7 +24,7 @@ static bool waitForWifiConnection(void)
     if (status == ASSOCSTATUS_DISCONNECTED || status == ASSOCSTATUS_CANNOTCONNECT)
         Wifi_AutoConnect();
 
-    for (u32 frame = 0; frame < 600; frame++) {
+    for (u32 frame = 0; frame < 1800; frame++) {
         status = Wifi_AssocStatus();
         if (status == ASSOCSTATUS_ASSOCIATED)
             return true;

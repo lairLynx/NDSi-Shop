@@ -881,15 +881,22 @@ static void downloadUpdate(void)
 }
 
 // Handles the update check and download
-static void handleUpdateCheck(void)
+static void handleUpdateCheck(bool manual)
 {
     showMessage(tr("Checking for updates..."));
 
     char newVersion[16];
-    DownloadStatus dlStatus = downloadToString(newVersion, sizeof(newVersion), UPDATE_URL_VERSION);
+    DownloadStatus dlStatus = DOWNLOAD_ERR_PERFORM_FAILED;
 
-    if (dlStatus != DOWNLOAD_SUCCESS)
+    // The connection may still be settling right after startup, so try a few times
+    for (int attempt = 0; attempt < 3 && dlStatus != DOWNLOAD_SUCCESS; attempt++)
+        dlStatus = downloadToString(newVersion, sizeof(newVersion), UPDATE_URL_VERSION);
+
+    if (dlStatus != DOWNLOAD_SUCCESS) {
+        if (manual)
+            windowPrompt(tr("Error"), tr("Could not check for updates"), tr("Ok"), NULL);
         return;
+    }
 
     newVersion[strcspn(newVersion, "\r\n")] = '\0';
 
@@ -2187,7 +2194,7 @@ setGuiTextText(settingValueTxt[2], tr(colorSchemeStr(settings.colorScheme)));
 }
 
 // Info menu
-// Displays information about NDS-Shop
+// Displays information about DSi-Shop
 static void infoMenu(void)
 {
     menu = MENU_NONE;
@@ -2219,7 +2226,7 @@ static void infoMenu(void)
     setGuiTextPos(appVersionTxt, 128, 43);
     setGuiTextAlignment(appVersionTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiText subtitle1Txt = newGuiText("by Rinzler", GUI_TEXT_SIZE_SMALL, 0);
+    GuiText subtitle1Txt = newGuiText("by lairLynx", GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(subtitle1Txt, 128, 72);
     setGuiTextAlignment(subtitle1Txt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
@@ -2261,7 +2268,7 @@ static void infoMenu(void)
         drawScreens();
 
         if (getGuiButtonState(checkUpdateBtn) == GUI_BUTTON_STATE_CLICKED) {
-            handleUpdateCheck();
+            handleUpdateCheck(true);
             resetGuiButtonState(checkUpdateBtn);
         }
 
@@ -2296,7 +2303,7 @@ void menuBegin(MenuEnum startingMenu)
     switchMenu(startingMenu);
 
     if (settings.checkUpdateOnStart)
-        handleUpdateCheck();
+        handleUpdateCheck(false);
 
     while (menu != MENU_EXIT) {
         switch (menu) {

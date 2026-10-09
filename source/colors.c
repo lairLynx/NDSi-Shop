@@ -4,7 +4,7 @@ u16 colorSchemes[COLOR_SCHEMES_COUNT][COLORS_COUNT];
 
 void initColorSchemes(void)
 {
-    // NDS-Shop default theme (matches 3DS app)
+    // DSi-Shop default theme (matches 3DS app)
     // #4B4B4B = (75,75,75) -> RGB15(9,9,9)
     // #00C9FF = (0,201,255) -> RGB15(0,25,31)
     // #FFFFFF = (255,255,255) -> RGB15(31,31,31)
