@@ -20,6 +20,8 @@ typedef enum {
     COLOR_TEXT_3,
     COLOR_PRIMARY,
     COLOR_SECONDARY,
+    COLOR_GRADIENT_TOP,
+    COLOR_GRADIENT_BOTTOM,
     COLORS_COUNT
 } ColorEnum;
 

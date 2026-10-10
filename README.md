@@ -83,6 +83,7 @@ Compared with [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homeb
 - Rebuilt GUI renderer: a software-rendered framebuffer replaces the sub-screen sprite/bitmap setup, with theme colors resolved by the renderer.
 - Box art is downloaded at a reduced size (128 px) and cached by URL under `cache/boxart`. If that fails it falls back to the original image, then to a thumbnail looked up by game name. A "Loading box art..." indicator is shown meanwhile.
 - The results list shows a live box art preview on the top screen for the highlighted game.
+- The top screen uses a gradient per color scheme instead of a flat dark background with the brick logo.
 - Folder picker for choosing the downloads directory.
 - New settings to show or hide box art entirely, and to cache it or not (both on by default). With caching off, images are deleted right after being displayed.
 
@@ -130,4 +131,5 @@ The original project is released under the [MIT License](https://opensource.org/
 Additional inspiration and related work:
 - [Kekatsu DS](https://github.com/cavv-dev/Kekatsu-DS) by cavv-dev (MIT licensed)
 - Database: [UDB-Kekatsu-DS](https://github.com/cavv-dev/UDB-Kekatsu-DS)
+- Top screen gradients: color pairs from [uiGradients](https://github.com/ghosh/uiGradients) by Indrashish Ghosh (MIT licensed)
 - Concept inspired by [pkgi-psp](https://github.com/bucanero/pkgi-psp) and [Universal-Updater](https://github.com/Universal-Team/Universal-Updater)

@@ -1,8 +1,6 @@
 #include "menu.h"
 
 #include "archives.h"
-#include "brickColor1_png.h"
-#include "brickColor2_png.h"
 #include "colors.h"
 #include "config.h"
 #include "gettext.h"
@@ -39,6 +37,14 @@ static MenuEnum menu;
 // Choose color macro (kept for backward compatibility but now uses guiGetColor)
 #include "gui/style.h"
 #define col(x) guiGetColor(x)
+
+// Creates the full-screen themed gradient used as the top screen background
+static GuiBox newTopGradientBox(void)
+{
+    GuiBox gb = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    setGuiBoxGradient(gb, col(COLOR_GRADIENT_TOP), col(COLOR_GRADIENT_BOTTOM));
+    return gb;
+}
 
 // Translate string macro
 #define tr(x) gettext(x)
@@ -190,7 +196,7 @@ static bool keyboardEdit(char* str, size_t maxLength)
     GuiScreen topScreen = newGuiScreen(GUI_SCREEN_LCD_TOP);
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
-    GuiBox topBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topBg = newTopGradientBox();
     GuiBox bottomBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG_2));
     GuiBox buttonsBg = newGuiBox(SCREEN_WIDTH, 50, col(COLOR_SECONDARY));
     setGuiBoxPos(buttonsBg, 0, 142);
@@ -445,8 +451,9 @@ static void drawBlank(void)
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    GuiBox topGradient = newTopGradientBox();
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
 
     setActiveScreens(topScreen, bottomScreen);
@@ -460,6 +467,7 @@ static void drawBlank(void)
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
+    freeGuiBox(topGradient);
 }
 
 static u32 hashString(const char* str)
@@ -1033,13 +1041,8 @@ static void browseMenu(void)
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
 
-    GuiImage brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    GuiImage brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-    setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-    setGuiImagePos(brickColor1, 96, 72);
-    setGuiImagePos(brickColor2, 96, 72);
 
     char menuTitleText[32];
     snprintf(menuTitleText, sizeof(menuTitleText), "%s (%d)", tr("Browse"), (db ? getDatabaseSize(db) : 0));
@@ -1073,9 +1076,7 @@ static void browseMenu(void)
     setGuiTextMaxWidth(noDatabaseTxt, 244);
     setGuiTextWrap(noDatabaseTxt, true);
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-    addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
 
     addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
@@ -1112,8 +1113,7 @@ static void browseMenu(void)
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
-    freeGuiImage(brickColor1);
-    freeGuiImage(brickColor2);
+    freeGuiBox(topGradient);
     freeGuiText(menuTitle);
     freeGuiBox(btnBg);
     freeGuiBox(btnBgHover);
@@ -1145,13 +1145,8 @@ static void resultsMenu(void)
     setGuiScreenDpadNavigate(bottomScreen, 0);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
 
-    GuiImage brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    GuiImage brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-    setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-    setGuiImagePos(brickColor1, 96, 72);
-    setGuiImagePos(brickColor2, 96, 72);
 
     char menuTitleText[16];
     snprintf(menuTitleText, sizeof(menuTitleText), "%s %d (%d)", tr("Page"), searchPage, resultsCount);
@@ -1207,9 +1202,7 @@ static void resultsMenu(void)
         setGuiButtonLabel(resultsBtn[i], resultsBtnTxt[i]);
     }
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-    addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
 
     if (resultPreview) {
@@ -1413,8 +1406,7 @@ static void resultsMenu(void)
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
-    freeGuiImage(brickColor1);
-    freeGuiImage(brickColor2);
+    freeGuiBox(topGradient);
     freeGuiText(menuTitle);
     freeGuiText(previewLoadingText);
     freeGuiText(prevPageTxt);
@@ -1446,11 +1438,9 @@ static void entryMenu(void)
     GuiScreen topScreen = newGuiScreen(GUI_SCREEN_LCD_TOP);
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
-    GuiBox topBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG_2));
+    GuiBox topBg = newTopGradientBox();
     GuiBox bottomBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
 
-    GuiImage brickColor1 = NULL;
-    GuiImage brickColor2 = NULL;
 
     GuiText entryTitle = newGuiText(getEntryTitle(selectedEntry), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(entryTitle, 128, 20);
@@ -1551,16 +1541,6 @@ static void entryMenu(void)
         setGuiImageAlign(boxart, GUI_IMAGE_H_ALIGN_CENTER, GUI_IMAGE_V_ALIGN_MIDDLE);
 
         addToGuiScreen(topScreen, boxart, GUI_ELEMENT_TYPE_IMAGE);
-    } else {
-        brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-        brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-        setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-        setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-        setGuiImagePos(brickColor1, 96, 72);
-        setGuiImagePos(brickColor2, 96, 72);
-
-        addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-        addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
     }
 
     while (menu == MENU_NONE) {
@@ -1591,12 +1571,8 @@ static void entryMenu(void)
     freeGuiBox(downloadBtnBgHover);
     freeGuiButton(downloadBtn);
 
-    if (boxart) {
+    if (boxart)
         freeGuiImage(boxart);
-    } else {
-        freeGuiImage(brickColor1);
-        freeGuiImage(brickColor2);
-    }
 }
 
 // Download menu
@@ -1628,13 +1604,8 @@ static void databasesMenu(void)
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
 
-    GuiImage brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    GuiImage brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-    setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-    setGuiImagePos(brickColor1, 96, 72);
-    setGuiImagePos(brickColor2, 96, 72);
 
     GuiText menuTitle = newGuiText(tr("Databases"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
@@ -1691,9 +1662,7 @@ static void databasesMenu(void)
         setGuiButtonLabel(dbBtns[i], dbBtnTxtNames[i]);
     }
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-    addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
 
     addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
@@ -1802,8 +1771,7 @@ static void databasesMenu(void)
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
-    freeGuiImage(brickColor1);
-    freeGuiImage(brickColor2);
+    freeGuiBox(topGradient);
     freeGuiText(menuTitle);
     freeGuiText(prevPageTxt);
     freeGuiText(nextPageTxt);
@@ -1900,7 +1868,7 @@ static bool chooseDownloadDirectory(char* selectedPath, size_t selectedPathSize)
 
     GuiScreen topScreen = newGuiScreen(GUI_SCREEN_LCD_TOP);
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
-    GuiBox topBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topBg = newTopGradientBox();
     GuiBox bottomBg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
     GuiBox btnBg = newGuiBox(SCREEN_WIDTH, 27, col(COLOR_BG_2));
     setGuiBoxBorder(btnBg, 1, col(COLOR_PRIMARY));
@@ -2093,13 +2061,8 @@ static void settingsMenu(void)
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
 
-    GuiImage brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    GuiImage brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-    setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-    setGuiImagePos(brickColor1, 96, 72);
-    setGuiImagePos(brickColor2, 96, 72);
 
     GuiText menuTitle = newGuiText(tr("Settings"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
@@ -2141,9 +2104,7 @@ static void settingsMenu(void)
     settingValueTxt[5] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[5], 168);
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-    addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
 
     addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
@@ -2241,8 +2202,7 @@ setGuiTextText(settingValueTxt[2], tr(colorSchemeStr(settings.colorScheme)));
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
-    freeGuiImage(brickColor1);
-    freeGuiImage(brickColor2);
+    freeGuiBox(topGradient);
     freeGuiText(menuTitle);
     freeGuiBox(btnBg);
     freeGuiBox(btnBgHover);
@@ -2264,13 +2224,8 @@ static void infoMenu(void)
     GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
 
     GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
 
-    GuiImage brickColor1 = newGuiImage(brickColor1_pngBitmap, brickColor1_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    GuiImage brickColor2 = newGuiImage(brickColor2_pngBitmap, brickColor2_pngPal, 64, 48, 64, 64, 0, 0, GUI_IMAGE_TEXTURE_TYPE_RGB256);
-    setGuiImageColorTint(brickColor1, col(COLOR_PRIMARY));
-    setGuiImageColorTint(brickColor2, col(COLOR_SECONDARY));
-    setGuiImagePos(brickColor1, 96, 72);
-    setGuiImagePos(brickColor2, 96, 72);
 
     GuiText menuTitle = newGuiText(tr("Info"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(menuTitle, 128, 178);
@@ -2309,9 +2264,7 @@ static void infoMenu(void)
     setGuiButtonLabel(checkUpdateBtn, checkUpdateBtnTxt);
     setGuiButtonPos(checkUpdateBtn, 128 - checkUpdateBtnWidth / 2, 106);
 
-    addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
-    addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
-    addToGuiScreen(topScreen, brickColor2, GUI_ELEMENT_TYPE_IMAGE);
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
 
     addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
@@ -2339,8 +2292,7 @@ static void infoMenu(void)
     freeGuiScreen(topScreen);
     freeGuiScreen(bottomScreen);
     freeGuiBox(bg);
-    freeGuiImage(brickColor1);
-    freeGuiImage(brickColor2);
+    freeGuiBox(topGradient);
     freeGuiText(menuTitle);
     freeGuiText(appNameTxt);
     freeGuiText(appVersionTxt);

@@ -63,4 +63,28 @@ void initColorSchemes(void)
     colorSchemes[COLOR_SCHEME_7][COLOR_TEXT_3] = RGB15_8BIT(194, 194, 194);
     colorSchemes[COLOR_SCHEME_7][COLOR_PRIMARY] = RGB15_8BIT(186, 186, 186);
     colorSchemes[COLOR_SCHEME_7][COLOR_SECONDARY] = RGB15_8BIT(105, 105, 105);
+
+    // Top screen gradients (top -> bottom), from uiGradients (MIT)
+    // https://github.com/ghosh/uiGradients
+    // Blue Raspberry: #00B4DB -> #0083B0
+    colorSchemes[COLOR_SCHEME_1][COLOR_GRADIENT_TOP] = RGB15_8BIT(0, 180, 219);
+    colorSchemes[COLOR_SCHEME_1][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(0, 131, 176);
+    // Dark Skies: #4B79A1 -> #283E51
+    colorSchemes[COLOR_SCHEME_2][COLOR_GRADIENT_TOP] = RGB15_8BIT(75, 121, 161);
+    colorSchemes[COLOR_SCHEME_2][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(40, 62, 81);
+    // Light Orange: #FFB75E -> #ED8F03
+    colorSchemes[COLOR_SCHEME_3][COLOR_GRADIENT_TOP] = RGB15_8BIT(255, 183, 94);
+    colorSchemes[COLOR_SCHEME_3][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(237, 143, 3);
+    // Playing with Reds: #D31027 -> #EA384D
+    colorSchemes[COLOR_SCHEME_4][COLOR_GRADIENT_TOP] = RGB15_8BIT(211, 16, 39);
+    colorSchemes[COLOR_SCHEME_4][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(234, 56, 77);
+    // Under the Lake: #093028 -> #237A57
+    colorSchemes[COLOR_SCHEME_5][COLOR_GRADIENT_TOP] = RGB15_8BIT(9, 48, 40);
+    colorSchemes[COLOR_SCHEME_5][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(35, 122, 87);
+    // Midnight City: #232526 -> #414345
+    colorSchemes[COLOR_SCHEME_6][COLOR_GRADIENT_TOP] = RGB15_8BIT(35, 37, 38);
+    colorSchemes[COLOR_SCHEME_6][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(65, 67, 69);
+    // Deep Space: #000000 -> #434343
+    colorSchemes[COLOR_SCHEME_7][COLOR_GRADIENT_TOP] = RGB15_8BIT(0, 0, 0);
+    colorSchemes[COLOR_SCHEME_7][COLOR_GRADIENT_BOTTOM] = RGB15_8BIT(67, 67, 67);
 }

@@ -2,7 +2,7 @@
 
 #define APP_NAME "DSi-Shop"
 #ifndef APP_VERSION
-#define APP_VERSION "1.0.8"
+#define APP_VERSION "1.0.9"
 #endif
 #define APPDATA_DIR "/NDSi-Shop"
 #define CACHE_DIR APPDATA_DIR "/cache" 

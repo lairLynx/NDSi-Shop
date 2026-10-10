@@ -11,5 +11,6 @@ void setGuiBoxHeight(GuiBox, size_t);
 size_t getGuiBoxBorderSize(GuiBox);
 void setGuiBoxPos(GuiBox, size_t posX, size_t posY);
 void setGuiBoxBorder(GuiBox, size_t borderSize, u16 borderColor);
+void setGuiBoxGradient(GuiBox, u16 topColor, u16 bottomColor); // Vertical gradient, replaces the solid color
 void drawGuiBoxPos(GuiBox, size_t posX, size_t posY);
 void drawGuiBox(GuiBox);

@@ -11,6 +11,9 @@ struct GuiBox {
     u16 color;
     size_t borderSize;
     u16 borderColor;
+    bool gradient;
+    u16 gradientTop;
+    u16 gradientBottom;
 };
 
 GuiBox newGuiBox(size_t width, size_t height, u16 color)
@@ -23,6 +26,9 @@ GuiBox newGuiBox(size_t width, size_t height, u16 color)
     gb->color = color;
     gb->borderSize = 0;
     gb->borderColor = 0;
+    gb->gradient = false;
+    gb->gradientTop = 0;
+    gb->gradientBottom = 0;
 
     return gb;
 }
@@ -59,8 +65,25 @@ void setGuiBoxBorder(GuiBox gb, size_t borderSize, u16 borderColor)
     gb->borderColor = borderColor;
 }
 
+void setGuiBoxGradient(GuiBox gb, u16 topColor, u16 bottomColor)
+{
+    gb->gradient = true;
+    gb->gradientTop = topColor;
+    gb->gradientBottom = bottomColor;
+}
+
 void drawGuiBoxPos(GuiBox gb, size_t posX, size_t posY)
 {
+    if (gb->gradient) {
+        // The software (palettized) target can't show a smooth gradient, use the top color
+        if (guiSoftwareIsActive())
+            guiSoftwareFillRect(posX, posY, gb->width, gb->height, gb->gradientTop);
+        else
+            glBoxFilledGradient(posX, posY, posX + gb->width - 1, posY + gb->height - 1,
+                gb->gradientTop, gb->gradientBottom, gb->gradientBottom, gb->gradientTop);
+        return;
+    }
+
     if (guiSoftwareIsActive()) {
         if (gb->borderSize && gb->borderColor && gb->color) {
             guiSoftwareFillRect(posX, posY, gb->width, gb->height, gb->borderColor);
