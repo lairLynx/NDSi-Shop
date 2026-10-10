@@ -23,6 +23,8 @@ bool defaultSettings(void)
 
     settings.colorScheme = COLOR_SCHEME_1;
     settings.lang = LANG_EN;
+    settings.showBoxart = true;
+    settings.cacheBoxart = true;
 
     return true;
 }
@@ -53,6 +55,10 @@ bool loadSettings(void)
             settings.dlUseDirs = valueInt;
         else if (strcmp(name, "colorScheme") == 0 && (valueInt > 0 && valueInt < COLOR_SCHEMES_COUNT + 1))
             settings.colorScheme = valueInt - 1;
+        else if (strcmp(name, "showBoxart") == 0 && (valueInt == 0 || valueInt == 1))
+            settings.showBoxart = valueInt;
+        else if (strcmp(name, "cacheBoxart") == 0 && (valueInt == 0 || valueInt == 1))
+            settings.cacheBoxart = valueInt;
         else if (strcmp(name, "lang") == 0 && (valueInt >= 0 && valueInt < LANGS_COUNT))
             settings.lang = valueInt;
     }
@@ -71,6 +77,8 @@ bool saveSettings(void)
     fprintf(fp, "dlPath=%s\n", settings.dlPath);
     fprintf(fp, "useDirs=%d\n", settings.dlUseDirs);
     fprintf(fp, "colorScheme=%d\n", settings.colorScheme + 1);
+    fprintf(fp, "showBoxart=%d\n", settings.showBoxart);
+    fprintf(fp, "cacheBoxart=%d\n", settings.cacheBoxart);
     fprintf(fp, "lang=%d\n", settings.lang);
 
     fclose(fp);

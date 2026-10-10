@@ -7,6 +7,8 @@ typedef enum {
     SETTING_DLPATH,
     SETTING_DLUSEDIRS,
     SETTING_COLORSCHEME,
+    SETTING_SHOWBOXART,
+    SETTING_CACHEBOXART,
     SETTING_LANG,
     SETTINGS_COUNT
 } SettingEnum;
@@ -16,6 +18,8 @@ struct Settings {
     bool dlUseDirs;
     ColorSchemeEnum colorScheme;
     LanguageEnum lang;
+    bool showBoxart;
+    bool cacheBoxart;
 };
 
 extern struct Settings settings;

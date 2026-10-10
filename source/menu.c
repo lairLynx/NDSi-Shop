@@ -521,7 +521,9 @@ static GuiImage loadBoxartFromUrl(const char* boxartUrl, const char* boxartDir)
     }
 
     GuiImage img = newGuiImagePNG(boxartPath, 128, 128);
-    if (!img)
+
+    // The image is fully loaded into memory, so the file is only needed when caching
+    if (!img || !settings.cacheBoxart)
         deleteFile(boxartPath);
 
     return img;
@@ -594,6 +596,9 @@ static GuiImage loadBoxartInternal(Entry e)
 
 static GuiImage loadBoxart(Entry e)
 {
+    if (!settings.showBoxart)
+        return NULL;
+
     return loadBoxartInternal(e);
 }
 
@@ -1371,7 +1376,7 @@ static void resultsMenu(void)
 
         if (previewDelay > 0) {
             previewDelay--;
-        } else if (resultsCount > 0 && menu == MENU_NONE) {
+        } else if (settings.showBoxart && resultsCount > 0 && menu == MENU_NONE) {
             size_t selectedIndex = scrollOffset + selectOffset;
             if (attemptedPreviewIndex != selectedIndex) {
                 if (!previewLoadingVisible) {
@@ -1517,7 +1522,8 @@ static void entryMenu(void)
     GuiText boxartLoadingText = newGuiText(tr("Loading box art..."), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextPos(boxartLoadingText, 128, 170);
     setGuiTextAlignment(boxartLoadingText, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
-    addToGuiScreen(topScreen, boxartLoadingText, GUI_ELEMENT_TYPE_TEXT);
+    if (settings.showBoxart)
+        addToGuiScreen(topScreen, boxartLoadingText, GUI_ELEMENT_TYPE_TEXT);
 
     addToGuiScreen(bottomScreen, bottomBg, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(bottomScreen, entryTitle, GUI_ELEMENT_TYPE_TEXT);
@@ -1536,7 +1542,8 @@ static void entryMenu(void)
     setActiveScreens(topScreen, bottomScreen);
 
     GuiImage boxart = loadBoxart(selectedEntry);
-    removeFromGuiScreen(topScreen, boxartLoadingText);
+    if (settings.showBoxart)
+        removeFromGuiScreen(topScreen, boxartLoadingText);
     freeGuiText(boxartLoadingText);
 
     if (boxart) {
@@ -2073,6 +2080,9 @@ static bool chooseDownloadDirectory(char* selectedPath, size_t selectedPathSize)
     return selected;
 }
 
+// Height of a settings row: 6 rows have to fit above the navbar (y = 160)
+#define SETTINGS_ROW_HEIGHT 26
+
 // Settings menu
 // Displays the app settings
 static void settingsMenu(void)
@@ -2095,10 +2105,10 @@ static void settingsMenu(void)
     setGuiTextPos(menuTitle, 128, 178);
     setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
 
-    GuiBox btnBg = newGuiBox(SCREEN_WIDTH, 32, col(COLOR_BG_2));
+    GuiBox btnBg = newGuiBox(SCREEN_WIDTH, SETTINGS_ROW_HEIGHT, col(COLOR_BG_2));
     setGuiBoxBorder(btnBg, 2, col(COLOR_PRIMARY));
 
-    GuiBox btnBgHover = newGuiBox(SCREEN_WIDTH, 32, col(COLOR_PRIMARY));
+    GuiBox btnBgHover = newGuiBox(SCREEN_WIDTH, SETTINGS_ROW_HEIGHT, col(COLOR_PRIMARY));
 
     GuiText settingBtnTxt[SETTINGS_COUNT];
     GuiButton settingBtn[SETTINGS_COUNT];
@@ -2119,9 +2129,17 @@ static void settingsMenu(void)
     settingValueTxt[2] = newGuiText(tr(colorSchemeStr(settings.colorScheme)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[2], 168);
 
-    settingBtnTxt[3] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, 0);
-    settingValueTxt[3] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
+    settingBtnTxt[3] = newGuiText(tr("Show box art"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[3] = newGuiText(tr(dlUseDirsStr(settings.showBoxart)), GUI_TEXT_SIZE_SMALL, 0);
     setGuiTextMaxWidth(settingBtnTxt[3], 168);
+
+    settingBtnTxt[4] = newGuiText(tr("Cache box art"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[4] = newGuiText(tr(dlUseDirsStr(settings.cacheBoxart)), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextMaxWidth(settingBtnTxt[4], 168);
+
+    settingBtnTxt[5] = newGuiText(tr("Language"), GUI_TEXT_SIZE_SMALL, 0);
+    settingValueTxt[5] = newGuiText(tr(langStr(settings.lang)), GUI_TEXT_SIZE_SMALL, 0);
+    setGuiTextMaxWidth(settingBtnTxt[5], 168);
 
     addToGuiScreen(topScreen, bg, GUI_ELEMENT_TYPE_BOX);
     addToGuiScreen(topScreen, brickColor1, GUI_ELEMENT_TYPE_IMAGE);
@@ -2133,19 +2151,19 @@ static void settingsMenu(void)
     for (size_t i = 0; i < SETTINGS_COUNT; i++) {
         setGuiTextPos(settingBtnTxt[i], 12, 0);
         setGuiTextAlignment(settingBtnTxt[i], GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
-        setGuiTextMaxHeight(settingBtnTxt[i], 32);
+        setGuiTextMaxHeight(settingBtnTxt[i], SETTINGS_ROW_HEIGHT);
         setGuiTextWrap(settingBtnTxt[i], true);
 
-        setGuiTextPos(settingValueTxt[i], 244, i * 32 + 16);
+        setGuiTextPos(settingValueTxt[i], 244, i * SETTINGS_ROW_HEIGHT + SETTINGS_ROW_HEIGHT / 2);
         setGuiTextAlignment(settingValueTxt[i], GUI_TEXT_H_ALIGN_RIGHT, GUI_TEXT_V_ALIGN_MIDDLE);
         setGuiTextMaxWidth(settingValueTxt[i], 232 - getGuiTextWidth(settingBtnTxt[i]));
-        setGuiTextMaxHeight(settingValueTxt[i], 32);
+        setGuiTextMaxHeight(settingValueTxt[i], SETTINGS_ROW_HEIGHT);
         setGuiTextWrap(settingValueTxt[i], true);
 
-        settingBtn[i] = newGuiButton(SCREEN_WIDTH, 32);
+        settingBtn[i] = newGuiButton(SCREEN_WIDTH, SETTINGS_ROW_HEIGHT);
         setGuiButtonBg(settingBtn[i], btnBg, btnBgHover);
         setGuiButtonLabel(settingBtn[i], settingBtnTxt[i]);
-        setGuiButtonPos(settingBtn[i], 0, i * 32);
+        setGuiButtonPos(settingBtn[i], 0, i * SETTINGS_ROW_HEIGHT);
 
         addToGuiScreen(bottomScreen, settingBtn[i], GUI_ELEMENT_TYPE_BUTTON);
         addToGuiScreen(bottomScreen, settingValueTxt[i], GUI_ELEMENT_TYPE_TEXT);
@@ -2189,18 +2207,32 @@ setGuiTextText(settingValueTxt[2], tr(colorSchemeStr(settings.colorScheme)));
             saveSettings();
             resetGuiButtonState(settingBtn[2]);
         } else if (getGuiButtonState(settingBtn[3]) == GUI_BUTTON_STATE_CLICKED) {
+            settings.showBoxart = settings.showBoxart ? false : true;
+
+            setGuiTextText(settingValueTxt[3], tr(dlUseDirsStr(settings.showBoxart)));
+
+            saveSettings();
+            resetGuiButtonState(settingBtn[3]);
+        } else if (getGuiButtonState(settingBtn[4]) == GUI_BUTTON_STATE_CLICKED) {
+            settings.cacheBoxart = settings.cacheBoxart ? false : true;
+
+            setGuiTextText(settingValueTxt[4], tr(dlUseDirsStr(settings.cacheBoxart)));
+
+            saveSettings();
+            resetGuiButtonState(settingBtn[4]);
+        } else if (getGuiButtonState(settingBtn[5]) == GUI_BUTTON_STATE_CLICKED) {
             settings.lang++;
 
             if (settings.lang == LANGS_COUNT)
                 settings.lang = 0;
 
-            setGuiTextText(settingValueTxt[3], tr(langStr(settings.lang)));
+            setGuiTextText(settingValueTxt[5], tr(langStr(settings.lang)));
 
             loadLanguage(settings.lang);
             switchMenu(MENU_SETTINGS);
 
             saveSettings();
-            resetGuiButtonState(settingBtn[3]);
+            resetGuiButtonState(settingBtn[5]);
         }
 
         navbarSwitchMenu();

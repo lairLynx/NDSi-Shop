@@ -77,15 +77,33 @@ python build.py release
 
 ## Changes from upstream
 
-This fork diverges from [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi) in the following ways:
+Compared with [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi), this fork changes:
 
-- Rebuilt GUI renderer.
-- Renamed to DSi-Shop; the ROM is `DSi-Shop.nds` and app data lives in `/NDSi-Shop` on the SD card. Settings from the old `/NDS-Shop` folder are still read if no new settings file exists.
-- The in-app update now replaces the ROM you launched, instead of saving a copy at the SD card root.
-- Updates are only offered when the published version is newer than the running one (numeric comparison), and a failed check now shows an error.
-- The update check on startup was removed (it was unreliable on slow connections); updates are checked manually from the Info screen. Network requests now have timeouts so they can no longer hang.
-- Settings loading is more forgiving: a malformed line no longer discards the rest, and download paths containing spaces are read correctly.
-- The app version comes from `version.txt` in the repo root rather than git tags.
+**Interface**
+- Rebuilt GUI renderer: a software-rendered framebuffer replaces the sub-screen sprite/bitmap setup, with theme colors resolved by the renderer.
+- Box art is downloaded at a reduced size (128 px) and cached by URL under `cache/boxart`. If that fails it falls back to the original image, then to a thumbnail looked up by game name. A "Loading box art..." indicator is shown meanwhile.
+- The results list shows a live box art preview on the top screen for the highlighted game.
+- Folder picker for choosing the downloads directory.
+- New settings to show or hide box art entirely, and to cache it or not (both on by default). With caching off, images are deleted right after being displayed.
+
+**Networking**
+- Wi-Fi is connected on demand and waited for (up to 15 s) instead of at startup. Download and database errors now clearly report "Wi-Fi connection unavailable".
+- Box art downloads keep the UI responsive, and version checks have timeouts so they can no longer hang.
+
+**Databases**
+- Universal-DB is included in the default databases and is re-added to `databases.txt` if missing.
+
+**Updates**
+- The in-app update replaces the ROM you launched, instead of saving a copy at the SD card root.
+- An update is only offered when the published version is newer than the running one (numeric comparison). Failed checks show an error.
+- The check on startup (and its setting) was removed. Updates are checked manually from the Info screen.
+- The app version comes from `version.txt` in the repo root instead of git tags.
+
+**Naming and data**
+- Renamed to DSi-Shop: the ROM is `DSi-Shop.nds`, app data lives in `/NDSi-Shop`, and the Info screen credits this fork. Settings from the old `/NDS-Shop` folder are still read if no new settings file exists.
+
+**Settings**
+- A malformed line in the settings file no longer discards the rest, and download paths containing spaces are read correctly.
 
 ## Screenshots
 

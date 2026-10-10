@@ -225,3 +225,9 @@ msgstr "NDS-Shop"
 
 msgid "Could not check for updates"
 msgstr "Impossible de vérifier les mises à jour"
+
+msgid "Show box art"
+msgstr "Afficher les jaquettes"
+
+msgid "Cache box art"
+msgstr "Mettre les jaquettes en cache"

@@ -219,3 +219,9 @@ msgstr "NDS-Shop"
 
 msgid "Could not check for updates"
 msgstr "Kon niet op updates controleren"
+
+msgid "Show box art"
+msgstr "Hoesjes tonen"
+
+msgid "Cache box art"
+msgstr "Hoesjes cachen"
