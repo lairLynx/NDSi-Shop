@@ -9,7 +9,7 @@
 - ZIP file extraction
 - Database loading via URL or file
 - Multiple database support
-- Automatic update check
+- In-app update check (from the Info screen)
 - 7 customizable color schemes
 - Multi-language support (EN, FR, NL, IT)
 
@@ -74,6 +74,18 @@ python build.py
 # Release build (outputs to release/)
 python build.py release
 ```
+
+## Changes from upstream
+
+This fork diverges from [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi) in the following ways:
+
+- Rebuilt GUI renderer.
+- Renamed to DSi-Shop; the ROM is `DSi-Shop.nds` and app data lives in `/NDSi-Shop` on the SD card. Settings from the old `/NDS-Shop` folder are still read if no new settings file exists.
+- The in-app update now replaces the ROM you launched, instead of saving a copy at the SD card root.
+- Updates are only offered when the published version is newer than the running one (numeric comparison), and a failed check now shows an error.
+- The update check on startup was removed (it was unreliable on slow connections); updates are checked manually from the Info screen. Network requests now have timeouts so they can no longer hang.
+- Settings loading is more forgiving: a malformed line no longer discards the rest, and download paths containing spaces are read correctly.
+- The app version comes from `version.txt` in the repo root rather than git tags.
 
 ## Screenshots
 
