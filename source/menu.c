@@ -2521,6 +2521,9 @@ void menuBegin(MenuEnum startingMenu)
 {
     drawBlank();
 
+    // The splash faded out to black; the screens are black too, so show them again
+    setBrightness(3, 0);
+
     loadLanguage(settings.lang);
     initColorSchemes();
     initNavbar();
