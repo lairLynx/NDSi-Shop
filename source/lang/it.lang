@@ -222,3 +222,21 @@ msgstr "Mostra copertine"
 
 msgid "Cache box art"
 msgstr "Salva copertine in cache"
+
+msgid "Repositories"
+msgstr "Repository"
+
+msgid "Not installed"
+msgstr "Non installato"
+
+msgid "Installed"
+msgstr "Installato"
+
+msgid "Checking latest release..."
+msgstr "Controllo ultima versione..."
+
+msgid "No .nds file found in the latest release"
+msgstr "Nessun file .nds nell'ultima versione"
+
+msgid "Already up to date. Download again?"
+msgstr "Già aggiornato. Scaricare di nuovo?"

@@ -79,6 +79,9 @@ python build.py release
 
 Compared with [NDS-Shop-Homebrew/NDS-Shop-DSi](https://github.com/NDS-Shop-Homebrew/NDS-Shop-DSi), this fork changes:
 
+**Repo mode**
+- The app starts on a Repositories screen listing hardcoded GitHub repositories (currently [lairLynx/Lynxibear-DS](https://github.com/lairLynx/Lynxibear-DS)). Selecting one downloads the `.nds` from its latest release into your downloads directory, replacing the previous copy, and remembers the installed version. The database browser is still available from the Browse tab.
+
 **Interface**
 - Rebuilt GUI renderer: a software-rendered framebuffer replaces the sub-screen sprite/bitmap setup, with theme colors resolved by the renderer.
 - Box art is downloaded at a reduced size (128 px) and cached by URL under `cache/boxart`. If that fails it falls back to the original image, then to a thumbnail looked up by game name. A "Loading box art..." indicator is shown meanwhile.

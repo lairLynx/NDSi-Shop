@@ -231,3 +231,21 @@ msgstr "Afficher les jaquettes"
 
 msgid "Cache box art"
 msgstr "Mettre les jaquettes en cache"
+
+msgid "Repositories"
+msgstr "Dépôts"
+
+msgid "Not installed"
+msgstr "Non installé"
+
+msgid "Installed"
+msgstr "Installé"
+
+msgid "Checking latest release..."
+msgstr "Recherche de la dernière version..."
+
+msgid "No .nds file found in the latest release"
+msgstr "Aucun fichier .nds dans la dernière version"
+
+msgid "Already up to date. Download again?"
+msgstr "Déjà à jour. Télécharger à nouveau ?"

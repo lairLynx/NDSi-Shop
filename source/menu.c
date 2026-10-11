@@ -22,6 +22,7 @@
 #include "navbarSettingsIcon_png.h"
 #include "networking.h"
 #include "rButton_png.h"
+#include "repos.h"
 #include "settings.h"
 #include "utils/filesystem.h"
 #include "utils/math.h"
@@ -1031,6 +1032,202 @@ static void loadLastOpenedDb(void)
         freeDatabase(lastDb);
 }
 
+// Reports a failed download with a message. Returns true if the download was successful
+static bool checkDownloadStatus(DownloadStatus dlStatus)
+{
+    char tempMessage[128];
+
+    switch (dlStatus) {
+    case DOWNLOAD_SUCCESS:
+        return true;
+    case DOWNLOAD_STOPPED:
+        return false;
+    case DOWNLOAD_ERR_WIFI_NOT_CONNECTED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("Wi-Fi connection unavailable"));
+        break;
+    case DOWNLOAD_ERR_NOT_OK:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("bad response status"));
+        break;
+    case DOWNLOAD_ERR_INIT_FAILED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("could not initialize download"));
+        break;
+    case DOWNLOAD_ERR_FILE_OPEN_FAILED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("could not create file"));
+        break;
+    default:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("could not perform download"));
+        break;
+    }
+
+    windowPrompt(tr("Error"), tempMessage, tr("Ok"), NULL);
+    return false;
+}
+
+// Downloads the .nds file of the latest release of the given repo, replacing the existing one
+static void installRepo(const struct Repo* repo)
+{
+    char tempMessage[256];
+
+    showMessage(tr("Checking latest release..."));
+
+    struct RepoRelease release;
+    switch (fetchLatestRepoRelease(repo, &release)) {
+    case REPO_RELEASE_SUCCESS:
+        break;
+    case REPO_RELEASE_ERR_WIFI_NOT_CONNECTED:
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Could not check for updates"), tr("Wi-Fi connection unavailable"));
+        windowPrompt(tr("Error"), tempMessage, tr("Ok"), NULL);
+        return;
+    case REPO_RELEASE_ERR_NO_NDS_FILE:
+        windowPrompt(tr("Error"), tr("No .nds file found in the latest release"), tr("Ok"), NULL);
+        return;
+    default:
+        windowPrompt(tr("Error"), tr("Could not check for updates"), tr("Ok"), NULL);
+        return;
+    }
+
+    char downloadDirPath[PATH_MAX];
+    if (settings.dlUseDirs)
+        joinPath(downloadDirPath, settings.dlPath, "nds");
+    else
+        strcpy(downloadDirPath, settings.dlPath);
+
+    if (!createDir(downloadDirPath)) {
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("could not create download directory"));
+        windowPrompt(tr("Error"), tempMessage, tr("Ok"), NULL);
+        return;
+    }
+
+    char filePath[PATH_MAX];
+    char tempFilePath[PATH_MAX + 8];
+    joinPath(filePath, downloadDirPath, release.assetName);
+    snprintf(tempFilePath, sizeof(tempFilePath), "%s.tmp", filePath);
+
+    // Nothing to replace when the installed release is already the latest one
+    char installedTag[64];
+    if (getInstalledRepoTag(repo, installedTag, sizeof(installedTag)) && strcmp(installedTag, release.tag) == 0 && fileExists(filePath)) {
+        snprintf(tempMessage, sizeof(tempMessage), "%s (%s)", tr("Already up to date. Download again?"), release.tag);
+        if (!windowPrompt(tr("Prompt"), tempMessage, tr("Yes"), tr("No")))
+            return;
+    }
+
+    // Download next to the destination first so a failed download never destroys the existing file
+    DownloadStatus dlStatus = downloadGui(tempFilePath, release.assetUrl, release.assetName);
+    if (!checkDownloadStatus(dlStatus)) {
+        deleteFile(tempFilePath);
+        return;
+    }
+
+    if (!renamePath(tempFilePath, filePath)) {
+        deleteFile(tempFilePath);
+        snprintf(tempMessage, sizeof(tempMessage), "%s: %s", tr("Download failed"), tr("could not create file"));
+        windowPrompt(tr("Error"), tempMessage, tr("Ok"), NULL);
+        return;
+    }
+
+    setInstalledRepoTag(repo, release.tag);
+
+    snprintf(tempMessage, sizeof(tempMessage), "%s\n(%s %s)", tr("Download completed"), repo->name, release.tag);
+    windowPrompt(tr("Info"), tempMessage, tr("Ok"), NULL);
+}
+
+#define MAX_REPOS_DISPLAY 5
+
+// Repos menu
+// Lists the hardcoded repositories; selecting one downloads the .nds of its latest release
+static void reposMenu(void)
+{
+    menu = MENU_NONE;
+
+    GuiScreen topScreen = newGuiScreen(GUI_SCREEN_LCD_TOP);
+    GuiScreen bottomScreen = newGuiScreen(GUI_SCREEN_LCD_BOTTOM);
+
+    GuiBox bg = newGuiBox(SCREEN_WIDTH, SCREEN_HEIGHT, col(COLOR_BG));
+    GuiBox topGradient = newTopGradientBox();
+
+    GuiText menuTitle = newGuiText(tr("Repositories"), GUI_TEXT_SIZE_MEDIUM, 0);
+    setGuiTextPos(menuTitle, 128, 178);
+    setGuiTextAlignment(menuTitle, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
+
+    GuiBox btnBg = newGuiBox(SCREEN_WIDTH, 32, col(COLOR_BG_2));
+    setGuiBoxBorder(btnBg, 2, col(COLOR_PRIMARY));
+    GuiBox btnBgHover = newGuiBox(SCREEN_WIDTH, 32, col(COLOR_PRIMARY));
+
+    size_t reposCount;
+    const struct Repo* repos = getRepos(&reposCount);
+    if (reposCount > MAX_REPOS_DISPLAY)
+        reposCount = MAX_REPOS_DISPLAY;
+
+    GuiText repoNameTxt[MAX_REPOS_DISPLAY];
+    GuiText repoStatusTxt[MAX_REPOS_DISPLAY];
+    GuiButton repoBtn[MAX_REPOS_DISPLAY];
+
+    addToGuiScreen(topScreen, topGradient, GUI_ELEMENT_TYPE_BOX);
+    addToGuiScreen(topScreen, menuTitle, GUI_ELEMENT_TYPE_TEXT);
+
+    addToGuiScreen(bottomScreen, bg, GUI_ELEMENT_TYPE_BOX);
+
+    for (size_t i = 0; i < reposCount; i++) {
+        char installedTag[64];
+        char statusText[80];
+        if (getInstalledRepoTag(&repos[i], installedTag, sizeof(installedTag)))
+            snprintf(statusText, sizeof(statusText), "%s %s", tr("Installed"), installedTag);
+        else
+            snprintf(statusText, sizeof(statusText), "%s", tr("Not installed"));
+
+        repoNameTxt[i] = newGuiText(repos[i].name, GUI_TEXT_SIZE_MEDIUM, 0);
+        setGuiTextPos(repoNameTxt[i], 12, 0);
+        setGuiTextAlignment(repoNameTxt[i], GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
+
+        repoStatusTxt[i] = newGuiText(statusText, GUI_TEXT_SIZE_SMALL, 0);
+        setGuiTextPos(repoStatusTxt[i], 244, i * 32 + 16);
+        setGuiTextAlignment(repoStatusTxt[i], GUI_TEXT_H_ALIGN_RIGHT, GUI_TEXT_V_ALIGN_MIDDLE);
+
+        repoBtn[i] = newGuiButton(SCREEN_WIDTH, 32);
+        setGuiButtonBg(repoBtn[i], btnBg, btnBgHover);
+        setGuiButtonLabel(repoBtn[i], repoNameTxt[i]);
+        setGuiButtonPos(repoBtn[i], 0, i * 32);
+
+        addToGuiScreen(bottomScreen, repoBtn[i], GUI_ELEMENT_TYPE_BUTTON);
+        addToGuiScreen(bottomScreen, repoStatusTxt[i], GUI_ELEMENT_TYPE_TEXT);
+    }
+
+    addNavbarToGuiScreen(bottomScreen);
+
+    setActiveScreens(topScreen, bottomScreen);
+    while (menu == MENU_NONE) {
+        guiLoop();
+        drawScreens();
+
+        for (size_t i = 0; i < reposCount; i++) {
+            if (getGuiButtonState(repoBtn[i]) != GUI_BUTTON_STATE_CLICKED)
+                continue;
+
+            installRepo(&repos[i]);
+            resetGuiButtonState(repoBtn[i]);
+
+            // Reload the menu to show the updated installed version
+            switchMenu(MENU_REPOS);
+            break;
+        }
+
+        navbarSwitchMenu();
+    }
+
+    freeGuiScreen(topScreen);
+    freeGuiScreen(bottomScreen);
+    freeGuiBox(bg);
+    freeGuiBox(topGradient);
+    freeGuiText(menuTitle);
+    freeGuiBox(btnBg);
+    freeGuiBox(btnBgHover);
+    for (size_t i = 0; i < reposCount; i++) {
+        freeGuiText(repoNameTxt[i]);
+        freeGuiText(repoStatusTxt[i]);
+        freeGuiButton(repoBtn[i]);
+    }
+}
+
 // Browse menu
 // Displays the search options
 static void browseMenu(void)
@@ -1070,6 +1267,14 @@ static void browseMenu(void)
     setGuiButtonLabel(btn2, btn2Txt);
     setGuiButtonPos(btn2, 0, 32);
 
+    GuiText btn3Txt = newGuiText(tr("Repositories"), GUI_TEXT_SIZE_MEDIUM, 0);
+    setGuiTextPos(btn3Txt, 12, 0);
+    setGuiTextAlignment(btn3Txt, GUI_TEXT_H_ALIGN_LEFT, GUI_TEXT_V_ALIGN_MIDDLE);
+    GuiButton btn3 = newGuiButton(SCREEN_WIDTH, 32);
+    setGuiButtonBg(btn3, btnBg, btnBgHover);
+    setGuiButtonLabel(btn3, btn3Txt);
+    setGuiButtonPos(btn3, 0, 128);
+
     GuiText noDatabaseTxt = newGuiText(tr("No database loaded or initialized"), GUI_TEXT_SIZE_MEDIUM, 0);
     setGuiTextPos(noDatabaseTxt, 128, 80);
     setGuiTextAlignment(noDatabaseTxt, GUI_TEXT_H_ALIGN_CENTER, GUI_TEXT_V_ALIGN_MIDDLE);
@@ -1088,6 +1293,8 @@ static void browseMenu(void)
         addToGuiScreen(bottomScreen, noDatabaseTxt, GUI_ELEMENT_TYPE_TEXT);
     }
 
+    addToGuiScreen(bottomScreen, btn3, GUI_ELEMENT_TYPE_BUTTON);
+
     addNavbarToGuiScreen(bottomScreen);
 
     setActiveScreens(topScreen, bottomScreen);
@@ -1105,6 +1312,9 @@ static void browseMenu(void)
             searchTitle[0] = '\0';
             searchPage = 1;
             switchMenu(MENU_RESULTS);
+        } else if (getGuiButtonState(btn3) == GUI_BUTTON_STATE_CLICKED) {
+            switchMenu(MENU_REPOS);
+            resetGuiButtonState(btn3);
         }
 
         navbarSwitchMenu();
@@ -1121,6 +1331,8 @@ static void browseMenu(void)
     freeGuiButton(btn1);
     freeGuiText(btn2Txt);
     freeGuiButton(btn2);
+    freeGuiText(btn3Txt);
+    freeGuiButton(btn3);
     freeGuiText(noDatabaseTxt);
 }
 
@@ -2317,6 +2529,9 @@ void menuBegin(MenuEnum startingMenu)
 
     while (menu != MENU_EXIT) {
         switch (menu) {
+        case MENU_REPOS:
+            reposMenu();
+            break;
         case MENU_BROWSE:
             browseMenu();
             break;

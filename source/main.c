@@ -50,7 +50,7 @@ int main(int argc, char** argv)
     initGuiVideo();
     initGuiFont();
 
-    menuBegin(MENU_BROWSE);
+    menuBegin(MENU_REPOS);
 
     return 0;
 }

@@ -225,3 +225,21 @@ msgstr "Hoesjes tonen"
 
 msgid "Cache box art"
 msgstr "Hoesjes cachen"
+
+msgid "Repositories"
+msgstr "Repositories"
+
+msgid "Not installed"
+msgstr "Niet geïnstalleerd"
+
+msgid "Installed"
+msgstr "Geïnstalleerd"
+
+msgid "Checking latest release..."
+msgstr "Laatste versie zoeken..."
+
+msgid "No .nds file found in the latest release"
+msgstr "Geen .nds-bestand in de laatste versie"
+
+msgid "Already up to date. Download again?"
+msgstr "Al up-to-date. Opnieuw downloaden?"

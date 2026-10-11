@@ -2,6 +2,7 @@
 
 typedef enum {
     MENU_NONE,
+    MENU_REPOS,
     MENU_BROWSE,
     MENU_RESULTS,
     MENU_ENTRY,
